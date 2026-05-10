@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ chapter }} - 測驗</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .timer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+        .question-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 4px solid #667eea;
+        }
+        .question-number {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .question-text {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .question-image {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        .options {
+            display: grid;
+            gap: 12px;
+        }
+        .option-label {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .option-label:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+        .option-label input[type="radio"] {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            accent-color: #667eea;
+        }
+        .option-label input[type="radio"]:checked + span {
+            color: #667eea;
+            font-weight: bold;
+        }
+        .submit-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-top: 20px;
+        }
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ chapter }} - 測驗</h1>
+            <p>共 {{ quiz_data|length }} 題</p>
+        </div>
+
+        <div class="timer">
+            ⏱️ 計時：<span id="timer">00:00</span>
+        </div>
+
+        <form method="post" action="{% url 'submit_quiz' %}" id="quizForm">
+            {% csrf_token %}
+            <input type="hidden" name="time_spent" id="timeSpent" value="0">
+            {% for item in quiz_data %}
+                <div class="question-card">
+                    <div class="question-number">第 {{ forloop.counter }} 題</div>
+                    <div class="question-text">{{ item.question }}</div>
+                    {% if item.question_image %}
+                        <img src="{{ item.question_image }}" alt="題目圖片" class="question-image">
+                    {% endif %}
+                    <div class="options">
+                        {% for option_key, option_text in item.options %}
+                            <label class="option-label">
+                                <input type="radio" name="question_{{ item.id }}" value="{{ option_key }}" required>
+                                <span>{{ option_key }}. {{ option_text }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="submit-btn">提交答案</button>
+        </form>
+
+        <a href="{% url 'home' %}" class="back-link">← 返回首頁</a>
+    </div>
+
+    <script>
+        let seconds = 0;
+        let timerInterval;
+
+        function updateTimer() {
+            seconds++;
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('timer').textContent =
+                String(minutes).padStart(2, '0') + ':' + String(remainingSeconds).padStart(2, '0');
+            document.getElementById('timeSpent').value = seconds;
+        }
+
+        timerInterval = setInterval(updateTimer, 1000);
+
+        document.getElementById('quizForm').addEventListener('submit', function() {
+            clearInterval(timerInterval);
+        });
+    </script>
+</body>
+</html>

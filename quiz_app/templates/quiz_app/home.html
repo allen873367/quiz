@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資料結構主題測驗網站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        .start-btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 15px;
+            font-size: 22px;
+            font-weight: bold;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin: 0 auto;
+        }
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .user-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .user-name {
+            color: #333;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .auth-links {
+            margin-top: 20px;
+        }
+        .auth-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+        .auth-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>資料結構主題測驗網站</h1>
+        <p class="subtitle">隨機出題測驗</p>
+
+        {% if user.is_authenticated %}
+            <div class="user-info">
+                <div class="user-name">👤 {{ user.nickname|default:user.username }}</div>
+            </div>
+        {% else %}
+            <div class="auth-links">
+                <a href="{% url 'login' %}" class="auth-link">登入</a>
+                <a href="{% url 'register' %}" class="auth-link">註冊</a>
+            </div>
+        {% endif %}
+
+        <div class="nav-links">
+            <a href="{% url 'leaderboard' %}" class="nav-link">🏆 排行榜</a>
+            <a href="{% url 'wrong_answers' %}" class="nav-link">❌ 錯題複習</a>
+            <a href="{% url 'quiz_records' %}" class="nav-link">📝 作答記錄</a>
+        </div>
+
+        <a href="{% url 'random_quiz' %}" class="start-btn">開始作答</a>
+
+        {% if user.is_authenticated %}
+            <div class="auth-links" style="margin-top: 30px;">
+                <a href="{% url 'logout' %}" class="auth-link">登出</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

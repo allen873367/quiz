@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測驗結果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .score-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .score-number {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .score-text {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        .time-spent {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        .question-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 4px solid #ccc;
+        }
+        .question-card.correct {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .question-card.incorrect {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .question-number {
+            color: #666;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .question-text {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .options {
+            display: grid;
+            gap: 10px;
+        }
+        .option-item {
+            padding: 10px 15px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .option-item.user-answer {
+            border: 2px solid #667eea;
+        }
+        .option-item.correct-answer {
+            border: 2px solid #28a745;
+            background: #d4edda;
+        }
+        .option-item.user-answer.correct-answer {
+            border-color: #28a745;
+        }
+        .option-item.user-answer.incorrect-answer {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .option-label {
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 30px;
+        }
+        .result-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .result-badge.correct {
+            background: #28a745;
+            color: white;
+        }
+        .result-badge.incorrect {
+            background: #dc3545;
+            color: white;
+        }
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .nav-link {
+            padding: 12px 25px;
+            background: #f8f9fa;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        .nav-link.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .nav-link.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ chapter }} - 測驗結果</h1>
+        </div>
+
+        <div class="score-card">
+            <div class="score-number">{{ score|floatformat:0 }}分</div>
+            <div class="score-text">答對 {{ correct_count }} / {{ total_questions }} 題</div>
+            <div class="time-spent">⏱️ 耗時：{% if time_minutes > 0 %}{{ time_minutes }}分 {% endif %}{{ time_seconds }}秒</div>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value">{{ correct_count }}</div>
+                    <div class="stat-label">答對</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ total_questions|add:"-"|add:correct_count }}</div>
+                    <div class="stat-label">答錯</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ total_questions }}</div>
+                    <div class="stat-label">總題數</div>
+                </div>
+            </div>
+        </div>
+
+        {% for result in results %}
+            <div class="question-card {% if result.is_correct %}correct{% else %}incorrect{% endif %}">
+                <div class="question-number">第 {{ forloop.counter }} 題</div>
+                <span class="result-badge {% if result.is_correct %}correct{% else %}incorrect{% endif %}">
+                    {% if result.is_correct %}正確{% else %}錯誤{% endif %}
+                </span>
+                <div class="question-text">{{ result.question }}</div>
+                <div class="options">
+                    {% for option_key, option_text in result.options %}
+                        <div class="option-item
+                            {% if option_key == result.user_answer %}user-answer{% endif %}
+                            {% if option_key == result.correct_answer %}correct-answer{% endif %}
+                            {% if option_key == result.user_answer and option_key != result.correct_answer %}incorrect-answer{% endif %}">
+                            <span class="option-label">{{ option_key }}.</span>
+                            <span>{{ option_text }}</span>
+                            {% if option_key == result.correct_answer %}
+                                <span style="margin-left: auto; color: #28a745; font-weight: bold;">✓ 正確答案</span>
+                            {% endif %}
+                            {% if option_key == result.user_answer and option_key != result.correct_answer %}
+                                <span style="margin-left: auto; color: #dc3545; font-weight: bold;">✗ 你的答案</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="nav-links">
+            <a href="{% url 'home' %}" class="nav-link">← 返回首頁</a>
+            <a href="{% url 'wrong_answers' %}" class="nav-link primary">❌ 查看錯題</a>
+        </div>
+    </div>
+</body>
+</html>

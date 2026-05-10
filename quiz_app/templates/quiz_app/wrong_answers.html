@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>錯題複習</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .record-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .record-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .record-item:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+        .record-info {
+            flex: 1;
+        }
+        .record-chapter {
+            font-weight: bold;
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        .record-time {
+            color: #999;
+            font-size: 14px;
+        }
+        .wrong-count {
+            background: #dc3545;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .no-records {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>❌ 錯題複習</h1>
+        </div>
+
+        {% if records %}
+            <div class="record-list">
+                {% for record in records %}
+                    <a href="{% url 'wrong_answers_detail' record.id %}" class="record-item" style="text-decoration: none;">
+                        <div class="record-info">
+                            <div class="record-chapter">{{ record.chapter }}</div>
+                            <div class="record-time">{{ record.created_at|date:"Y-m-d H:i" }}</div>
+                        </div>
+                        <div class="wrong-count">{{ record.wrong_count }}題錯誤</div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-records">
+                <p>目前沒有錯題記錄</p>
+            </div>
+        {% endif %}
+
+        <div style="text-align: center;">
+            <a href="{% url 'home' %}" class="back-link">← 返回首頁</a>
+        </div>
+    </div>
+</body>
+</html>
