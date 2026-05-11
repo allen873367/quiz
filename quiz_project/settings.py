@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-7cy)n@qk-$u()o*3u8!atiw-kxr%yg30(5tc#p=_su1xf-y5p!')
@@ -15,7 +18,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-7cy)n@qk-$u()o*3u8!at
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-if not ALLOWED_HOSTS:
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
     ALLOWED_HOSTS = ['*']
 
 # Application definition
@@ -77,7 +80,8 @@ if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=600,
         ssl_require=True,
-        conn_health_checks=True
+        conn_health_checks=True,
+        engine='django.db.backends.postgresql'
     )
 
 # Password validation
@@ -139,4 +143,6 @@ if not DEBUG:
 # CSRF settings for Render
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
 if os.environ.get('RENDER_EXTERNAL_URL'):
-    CSRF_TRUSTED_ORIGINS.append(os.environ.get('RENDER_EXTERNAL_URL'))
+    render_url = os.environ.get('RENDER_EXTERNAL_URL')
+    if render_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_url)
