@@ -19,3 +19,4 @@ databases:
   - name: quiz-db
     databaseName: quiz_db
     user: quiz_user
+    plan: free
