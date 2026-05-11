@@ -2,7 +2,7 @@ services:
   - type: web
     name: quiz-app
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py import_questions && python manage.py collectstatic --noinput
+    buildCommand: bash build.sh
     startCommand: gunicorn quiz_project.wsgi:application
     envVars:
       - key: SECRET_KEY
