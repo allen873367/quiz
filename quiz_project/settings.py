@@ -80,9 +80,11 @@ if os.environ.get('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=600,
         ssl_require=True,
-        conn_health_checks=True,
-        engine='django.db.backends.postgresql'
+        conn_health_checks=True
     )
+elif not DEBUG:
+    # In production without DATABASE_URL, use SQLite
+    pass
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

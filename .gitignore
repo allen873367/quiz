@@ -48,7 +48,3 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
-
-# Migrations
-*/migrations/*.py
-!*/migrations/__init__.py
