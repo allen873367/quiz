@@ -141,8 +141,8 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
 
 # CSRF settings for Render
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+CSRF_TRUSTED_ORIGINS = []
 if os.environ.get('RENDER_EXTERNAL_URL'):
     render_url = os.environ.get('RENDER_EXTERNAL_URL')
-    if render_url not in CSRF_TRUSTED_ORIGINS:
+    if render_url and render_url not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(render_url)
