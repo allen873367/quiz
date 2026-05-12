@@ -212,7 +212,7 @@ def quiz_records(request):
 
 
 def leaderboard(request):
-    records = QuizRecord.objects.all()[:20]
+    records = QuizRecord.objects.all().order_by('-score')[:20]
     # 為每個記錄計算時間格式
     for record in records:
         record.time_minutes = record.time_spent // 60
