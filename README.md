@@ -123,8 +123,9 @@ python manage.py createsuperuser
 
 - 第7章 樹狀結構：18題
 
-## 技術棧
+## 技術支持
 
+- free claude code輔助
 - Python 3.14
 - Django 6.0.5
 - SQLite
