@@ -125,7 +125,7 @@ python manage.py createsuperuser
 
 ## 技術支持
 
-- free claude code輔助
+- free claude code 插件輔助
 - Python 3.14
 - Django 6.0.5
 - SQLite
