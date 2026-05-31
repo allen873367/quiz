@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html lang="zh-hant" dir="ltr">
+<head>
+<title>登入 | 資料結構管理後台</title>
+<link rel="stylesheet" href="/static/admin/css/base.css">
+
+  <link rel="stylesheet" href="/static/admin/css/dark_mode.css">
+  <script src="/static/admin/js/theme.js"></script>
+
+
+  <link rel="stylesheet" href="/static/admin/css/nav_sidebar.css">
+  <script src="/static/admin/js/nav_sidebar.js" defer></script>
+
+
+
+<link rel="stylesheet" href="/static/quiz_app/css/style.css">
+<style>
+  :root {
+    --primary: #6366f1;
+    --secondary: #302b63;
+    --accent: #14b8a6;
+    --header-bg: rgba(15,12,41,0.85);
+    --header-link: #94a3b8;
+    --body-bg: #0f0c29;
+    --body-quiet-color: #94a3b8;
+    --body-loud-color: #f1f5f9;
+    --breadcrumbs-bg: #302b63;
+    --link-fg: #6366f1;
+    --link-hover-color: #14b8a6;
+    --button-bg: #6366f1;
+    --button-hover-bg: #14b8a6;
+    --default-button-bg: #6366f1;
+    --default-button-hover-bg: #14b8a6;
+    --close-button-bg: #475569;
+    --close-button-hover-bg: #64748b;
+    --delete-button-bg: #f43f5e;
+    --delete-button-hover-bg: #e11d48;
+    --object-tools-bg: #6366f1;
+    --object-tools-hover-bg: #14b8a6;
+    --module-header-bg: #302b63;
+    --module-bg: rgba(255,255,255,0.05);
+    --selected-row: rgba(99,102,241,0.15);
+  }
+  body {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    background-attachment: fixed;
+  }
+  #header {
+    background: rgba(15,12,41,0.80);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 2px 20px rgba(0,0,0,0.30);
+  }
+  #header a:link, #header a:visited { color: var(--header-link); }
+  #user-tools a { color: var(--header-link); }
+  #user-tools a:hover { color: white; }
+  div.breadcrumbs {
+    background: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: var(--body-quiet-color);
+  }
+  div.breadcrumbs a { color: var(--link-fg); }
+  #content h1 { color: var(--body-loud-color); }
+  .module { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+  .module h2, .module caption { background: rgba(255,255,255,0.08); color: var(--body-loud-color); }
+  .module td, .module th { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  thead th { background: rgba(255,255,255,0.06); color: var(--body-loud-color); }
+  tr:nth-child(odd), .row1 { background: transparent; }
+  tr:nth-child(even), .row2 { background: rgba(255,255,255,0.03); }
+  input, textarea, select {
+    background: rgba(0,0,0,0.25) !important;
+    color: var(--body-loud-color) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 6px !important;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.20) !important;
+  }
+  .submit-row { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 20px; }
+  .button, input[type=submit], input[type=button], .submit-row input {
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+  }
+  .paginator { background: rgba(255,255,255,0.05); border-top: 1px solid rgba(255,255,255,0.08); }
+  .selector-chosen h2 { background: var(--primary) !important; }
+  #changelist { background: transparent; }
+  #changelist-filter { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+  #changelist-filter li.selected a { color: var(--link-fg); }
+  .field-is_new { text-align: center; }
+  .field-is_new img { vertical-align: middle; }
+</style>
+<link rel="stylesheet" href="/static/admin/css/login.css">
+
+
+
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/admin/css/responsive.css">
+    
+
+<meta name="robots" content="NONE,NOARCHIVE">
+</head>
+
+<body class=" login"
+  data-admin-utc-offset="28800">
+<a href="#content-start" class="skip-to-content-link">跳到主要內容</a>
+<!-- Container -->
+<div id="container">
+
+    
+    <!-- Header -->
+    
+      <header id="header">
+        <div id="branding">
+        
+<div id="site-name" style="display:flex;align-items:center;gap:10px;">
+  <a href="/admin/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);">
+    <span style="
+      width:32px;height:32px;
+      background:linear-gradient(135deg,#6366f1,#14b8a6);
+      border-radius:8px;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:14px;font-weight:700;color:white;
+    ">DS</span>
+    <span style="font-weight:700;font-size:16px;">資料結構管理後台</span>
+  </a>
+</div>
+
+        </div>
+        
+        
+      </header>
+    
+    <!-- END Header -->
+    
+    
+
+    <div class="main" id="main">
+      
+        
+      
+      <main id="content-start" class="content" tabindex="-1">
+        
+          
+        
+        <!-- Content -->
+        <div id="content" class="colM">
+          
+          
+          
+          
+
+
+
+
+<div id="content-main">
+
+
+
+<form action="/admin/login/?next=/admin/" method="post" id="login-form"><input type="hidden" name="csrfmiddlewaretoken" value="iBGkP4BurOgRISi2R0zbSZ3F23AYhmaIFnOeBe8UkZCzMqD8ii5VNlTgrt6gresn">
+  <div class="form-row">
+    
+    <label for="id_username" class="required">使用者名稱：</label> <input type="text" name="username" autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username">
+  </div>
+  <div class="form-row">
+    
+    <label for="id_password" class="required">密碼：</label> <input type="password" name="password" autocomplete="current-password" required id="id_password">
+    <input type="hidden" name="next" value="/admin/">
+  </div>
+  
+  
+  <div class="submit-row">
+    <input type="submit" value="登入">
+  </div>
+</form>
+
+</div>
+
+          
+          <br class="clear">
+        </div>
+        <!-- END Content -->
+      </main>
+    </div>
+    <footer id="footer"></footer>
+</div>
+<!-- END Container -->
+
+<!-- SVGs -->
+<svg xmlns="http://www.w3.org/2000/svg" class="base-svgs">
+  <symbol viewBox="0 0 24 24" id="icon-auto"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2V4a8 8 0 1 0 0 16z"/></symbol>
+  <symbol viewBox="0 0 24 24" id="icon-moon"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/></symbol>
+  <symbol viewBox="0 0 24 24" id="icon-sun"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/></symbol>
+</svg>
+<!-- END SVGs -->
+
+</body>
+</html>

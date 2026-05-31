@@ -1,0 +1,419 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | 資料結構管理後台{% endblock %}
+
+{% block branding %}
+<div id="site-name" style="display:flex;align-items:center;gap:10px;">
+  <a href="{% url 'admin:index' %}" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);">
+    <span style="
+      width:32px;height:32px;
+      background:linear-gradient(135deg,#6366f1,#14b8a6);
+      border-radius:8px;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:14px;font-weight:700;color:white;
+    ">DS</span>
+    <span style="font-weight:700;font-size:16px;">資料結構管理後台</span>
+  </a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}">
+<style>
+  /* ══════════════════════════════════════════════
+     Aurora Glass — Django Admin Theme
+     高對比 · 色弱友善 · 風格一致
+     ══════════════════════════════════════════════ */
+  :root {
+    --primary: #818cf8;
+    --secondary: #1e1b4b;
+    --accent: #2dd4bf;
+    --primary-fg: #fff;
+    --body-bg: #0f0c29;
+    --body-fg: #e2e8f0;
+    --body-quiet-color: #cbd5e1;
+    --body-loud-color: #f8fafc;
+    --header-color: #e2e8f0;
+    --header-branding-color: #f8fafc;
+    --header-bg: rgba(15,12,41,0.92);
+    --header-link: #cbd5e1;
+    --breadcrumbs-bg: rgba(30,27,75,0.70);
+    --breadcrumbs-fg: #cbd5e1;
+    --breadcrumbs-link-fg: #818cf8;
+    --link-fg: #818cf8;
+    --link-hover-color: #2dd4bf;
+    --link-selected-fg: #a78bfa;
+    --button-bg: #818cf8;
+    --button-hover-bg: #2dd4bf;
+    --button-fg: #fff;
+    --default-button-bg: #818cf8;
+    --default-button-hover-bg: #2dd4bf;
+    --default-button-fg: #fff;
+    --close-button-bg: #475569;
+    --close-button-hover-bg: #64748b;
+    --delete-button-bg: #f87171;
+    --delete-button-hover-bg: #ef4444;
+    --object-tools-bg: #818cf8;
+    --object-tools-hover-bg: #2dd4bf;
+    --object-tools-fg: #fff;
+    --module-header-bg: rgba(30,27,75,0.80);
+    --module-bg: rgba(255,255,255,0.05);
+    --selected-row: rgba(129,140,248,0.18);
+    --darkened-bg: rgba(255,255,255,0.06);
+    --border-color: rgba(255,255,255,0.10);
+    --error-fg: #fca5a5;
+    --success-fg: #6ee7b7;
+    --warning-fg: #fcd34d;
+    --font-family-primary: "Noto Sans TC","Segoe UI",system-ui,sans-serif;
+    --font-family-monospace: "JetBrains Mono","Consolas",monospace;
+  }
+
+  /* ── Base ── */
+  body {
+    background: linear-gradient(135deg,#0f0c29,#302b63,#24243e) fixed !important;
+    color: var(--body-fg);
+    font-family: var(--font-family-primary);
+    line-height: 1.6;
+  }
+  body, #container { background: transparent !important; }
+  #container { max-width: 1280px; margin: 0 auto; }
+
+  /* ── Header ── */
+  #header {
+    background: var(--header-bg) !important;
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 20px rgba(0,0,0,0.30);
+    color: var(--header-color);
+    padding: 10px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #branding h1, #branding h1 a:link, #branding h1 a:visited {
+    color: var(--header-branding-color);
+    font-weight: 700;
+  }
+  #user-tools {
+    color: var(--header-link);
+    font-size: 13px;
+    font-family: var(--font-family-primary) !important;
+  }
+  #user-tools a {
+    color: var(--header-link) !important;
+    font-family: var(--font-family-primary) !important;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 4px 2px;
+  }
+  #user-tools a:hover, #user-tools a:focus {
+    color: #fff !important;
+  }
+  /* 登出按鈕強制統一 */
+  #user-tools strong { font-weight: 600; font-family: inherit; }
+
+  /* ── Breadcrumbs ── */
+  div.breadcrumbs {
+    background: var(--breadcrumbs-bg) !important;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--breadcrumbs-fg);
+    padding: 10px 24px;
+    font-size: 13px;
+  }
+  div.breadcrumbs a { color: var(--breadcrumbs-link-fg); }
+  div.breadcrumbs a:hover { color: var(--accent); }
+
+  /* ── Content ── */
+  #content { padding: 24px; }
+  #content h1 { color: var(--body-loud-color); font-weight: 700; }
+  #content h2 { color: var(--body-fg); }
+
+  /* ── Modules / Cards ── */
+  .module {
+    background: var(--module-bg) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .module h2, .module caption {
+    background: var(--module-header-bg) !important;
+    color: var(--body-loud-color) !important;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .module caption a { color: var(--body-loud-color); }
+  .module caption a:hover { color: var(--accent); }
+
+  /* ── Tables ── */
+  .module table { border-collapse: collapse; }
+  thead th {
+    background: rgba(255,255,255,0.08) !important;
+    color: var(--body-loud-color) !important;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border-color);
+  }
+  .module td, .module th {
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 12px;
+    color: var(--body-fg);
+  }
+  tr:nth-child(odd), .row1 { background: transparent; }
+  tr:nth-child(even), .row2 { background: rgba(255,255,255,0.03); }
+  tr.selected { background: var(--selected-row) !important; }
+  .module tbody tr:hover {
+    background: rgba(129,140,248,0.10);
+  }
+
+  /* ── Links ── */
+  a:link, a:visited { color: var(--link-fg); }
+  a:hover { color: var(--link-hover-color); }
+  a.section:link, a.section:visited { color: var(--body-loud-color); }
+
+  /* ── Forms / Inputs ── */
+  input, textarea, select {
+    background: rgba(0,0,0,0.30) !important;
+    color: var(--body-loud-color) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 14px;
+    font-family: var(--font-family-primary);
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(129,140,248,0.25) !important;
+    outline: none;
+  }
+  input[type=file] {
+    background: transparent !important;
+    border: none !important;
+    color: var(--body-fg) !important;
+    padding: 0 !important;
+  }
+  /* ── Select / Dropdown ── */
+  select {
+    min-height: 38px;
+    padding: 4px 8px !important;
+    font-size: 13px !important;
+    appearance: auto;
+    -webkit-appearance: auto;
+  }
+  select[multiple] { min-height: 100px; }
+  select option { background: #1e1b4b; color: var(--body-loud-color); padding: 4px 8px; }
+  .form-row { padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+  .form-row label { color: var(--body-fg); font-size: 13px; }
+  .form-row .vCheckboxLabel { color: var(--body-fg); }
+  .aligned label { padding: 4px 0; }
+  .form-row .help { color: var(--body-quiet-color); font-size: 12px; }
+  .errornote { background: rgba(248,113,113,0.15); color: var(--error-fg); border: 1px solid rgba(248,113,113,0.30); border-radius: 6px; padding: 10px 14px; }
+  .errorlist { color: var(--error-fg); }
+
+  /* ── Buttons ── */
+  .button, input[type=submit], input[type=button], .submit-row input {
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    font-size: 13px;
+    border: none !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .button:hover, input[type=submit]:hover, input[type=button]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(129,140,248,0.30);
+  }
+  .submit-row {
+    background: var(--module-bg) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 16px;
+  }
+  .submit-row input.default { background: var(--default-button-bg); }
+  .submit-row input.default:hover { background: var(--default-button-hover-bg); }
+  .deletelink { background: var(--delete-button-bg); border-radius: 6px; padding: 8px 16px; color: #fff !important; text-decoration: none; font-weight: 600; font-size: 13px; }
+
+  /* ── Paginator ── */
+  .paginator {
+    background: var(--module-bg) !important;
+    border-top: 1px solid var(--border-color);
+    color: var(--body-quiet-color);
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+  .paginator a:link, .paginator a:visited { color: var(--link-fg); padding: 4px 10px; border-radius: 4px; }
+  .paginator a:hover { background: rgba(129,140,248,0.15); }
+  .paginator .this-page { background: var(--primary); color: #fff; border-radius: 4px; padding: 4px 10px; font-weight: 600; }
+  .paginator .end { color: var(--body-quiet-color); }
+
+  /* ── Change list ── */
+  #changelist { background: transparent !important; }
+  #changelist .toplinks { border-bottom: 1px solid var(--border-color); }
+  #changelist .toplinks a { color: var(--link-fg); }
+  #changelist-filter { background: var(--module-bg) !important; border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; }
+  #changelist-filter h2 { color: var(--body-loud-color) !important; font-size: 13px; font-weight: 600; }
+  #changelist-filter li { border-bottom: 1px solid var(--border-color); }
+  #changelist-filter li a { color: var(--body-quiet-color); }
+  #changelist-filter li.selected a { color: var(--link-fg) !important; font-weight: 600; }
+  #changelist-filter .active { background: rgba(129,140,248,0.10); }
+  .actions { color: var(--body-fg); }
+  .actions select { margin: 0 8px; }
+  .actions .button { margin-left: 8px; }
+  .change-list .filtered .results, .change-list .filtered .paginator, .filtered #toolbar, .filtered div.xfull { margin-right: 280px; }
+
+  /* ── Change form ── */
+  .form-panel { background: var(--module-bg); border: 1px solid var(--border-color); border-radius: 12px; }
+  .inline-group { background: transparent; }
+  .inline-group .tabular td.original p { color: var(--body-quiet-color); font-size: 11px; }
+  .inline-related h3 { background: var(--module-header-bg); color: var(--body-loud-color); border-bottom: 1px solid var(--border-color); padding: 10px 16px; font-size: 14px; }
+  .inline-related { background: var(--module-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 16px; }
+
+  /* ── Object tools ── */
+  .object-tools { margin-top: -40px; }
+  .object-tools a:link, .object-tools a:visited { background: var(--object-tools-bg); border-radius: 6px; padding: 6px 14px; color: #fff; font-weight: 600; font-size: 12px; }
+  .object-tools a:hover { background: var(--object-tools-hover-bg); }
+  .object-tools a.addlink { background: var(--default-button-bg); }
+
+  /* ── Selector / Many-to-many ── */
+  .selector-chosen h2 { background: var(--primary) !important; color: #fff !important; }
+  .selector-chooser { background: transparent; }
+  .selector .selector-filter { border: none; }
+  .selector .selector-filter label { color: var(--body-quiet-color); }
+
+  /* ── Calendar / DateTime ── */
+  .calendar { background: var(--module-bg); border: 1px solid var(--border-color); border-radius: 12px; }
+  .calendar td, .calendar th { border: 1px solid var(--border-color); }
+  .calendar td a { color: var(--body-fg); }
+  .calendar td a:hover { background: rgba(129,140,248,0.15); }
+  .calendar td.selected a { background: var(--primary); color: #fff; border-radius: 4px; }
+  .calendar caption { background: var(--module-header-bg); color: var(--body-loud-color); }
+  .timelist { background: var(--module-bg); border: 1px solid var(--border-color); border-radius: 12px; }
+  .timelist a:link, .timelist a:visited { color: var(--body-fg); }
+  .timelist a:hover { background: rgba(129,140,248,0.15); }
+
+  /* ── Dashboard ── */
+  .dashboard .module table th { width: 100%; }
+  .dashboard .module table td { white-space: nowrap; }
+
+  /* ── Login page ── */
+  .login { background: linear-gradient(135deg,#0f0c29,#302b63,#24243e) fixed !important; }
+  .login #header { border-radius: 12px 12px 0 0; }
+  .login #content { padding: 20px 28px; }
+  .login .form-row { padding: 12px 0; }
+  .login .submit-row { background: transparent !important; border: none; padding: 16px 0 0; }
+  .login .submit-row input { width: 100%; padding: 12px !important; font-size: 15px; }
+
+  /* ── Messages / Alerts ── */
+  .messagelist li {
+    border-radius: 8px;
+    padding: 12px 16px !important;
+    margin-bottom: 8px;
+    background-image: none !important;
+    list-style: none;
+  }
+  .messagelist li::before { display: none !important; }
+  .messagelist li.success {
+    background: rgba(110,231,183,0.12) !important;
+    color: #6ee7b7;
+    border: 1px solid rgba(110,231,183,0.25);
+  }
+  .messagelist li.warning {
+    background: rgba(252,211,77,0.12) !important;
+    color: #fcd34d;
+    border: 1px solid rgba(252,211,77,0.25);
+  }
+  .messagelist li.error {
+    background: rgba(248,113,113,0.12) !important;
+    color: #fca5a5;
+    border: 1px solid rgba(248,113,113,0.25);
+  }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 1024px) {
+    #changelist:not(.filtered) .results { width: 100%; }
+    .change-list .filtered .results, .change-list .filtered .paginator, .filtered #toolbar, .filtered div.xfull { margin-right: 0; }
+    #changelist-filter { display: none; }
+    #changelist-filter.visible { display: block; }
+  }
+
+  /* ── Theme toggle button ── */
+  .theme-toggle {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--header-link);
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  /* ── Field overrides ── */
+  .field-is_new { text-align: center; }
+  .field-is_new img { vertical-align: middle; }
+  .vForeignKeyRawIdAdminField { width: auto !important; }
+  .fieldBox { background: transparent; }
+
+  /* ── Image delete: checkbox → button ── */
+  .clearable-file-input {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .clearable-file-input input[type=checkbox] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .clearable-file-input input[type=checkbox] + label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #f87171;
+    color: #fff !important;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .clearable-file-input input[type=checkbox] + label:hover {
+    background: #ef4444;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(248,113,113,0.35);
+  }
+  .clearable-file-input input[type=checkbox]:checked + label {
+    background: #475569;
+  }
+  .clearable-file-input input[type=checkbox]:checked + label:hover {
+    background: #64748b;
+  }
+  /* 顯示目前圖片路徑 */
+  .file-upload {
+    color: var(--body-fg);
+    font-size: 13px;
+    padding: 8px 0;
+  }
+  .file-upload a { color: var(--link-fg); }
+  .file-upload input[type=file] {
+    margin: 6px 0;
+    display: block;
+  }
+
+  /* ── Django dark mode compat ── */
+  @media (prefers-color-scheme: dark) {
+    :root { --body-bg: #0f0c29; }
+    body { background: linear-gradient(135deg,#0f0c29,#302b63,#24243e) fixed !important; }
+  }
+</style>
+{% endblock %}

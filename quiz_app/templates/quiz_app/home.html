@@ -1,133 +1,123 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資料結構主題測驗網站</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        .subtitle {
-            color: #666;
-            margin-bottom: 40px;
-            font-size: 14px;
-        }
-        .nav-links {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 40px;
-        }
-        .nav-link {
-            padding: 10px 20px;
-            background: #f8f9fa;
-            color: #667eea;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        .nav-link:hover {
-            background: #667eea;
-            color: white;
-        }
-        .start-btn {
-            display: block;
-            width: 100%;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 15px;
-            font-size: 22px;
-            font-weight: bold;
-            transition: transform 0.3s, box-shadow 0.3s;
-            margin: 0 auto;
-        }
-        .start-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-        .user-info {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        .user-name {
-            color: #333;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .auth-links {
-            margin-top: 20px;
-        }
-        .auth-link {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-            margin: 0 10px;
-        }
-        .auth-link:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>資料結構主題測驗網站</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <h1>資料結構主題測驗網站</h1>
-        <p class="subtitle">隨機出題測驗</p>
+<div class="app">
 
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link active" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
         {% if user.is_authenticated %}
-            <div class="user-info">
-                <div class="user-name">👤 {{ user.nickname|default:user.username }}</div>
-            </div>
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% else %}
-            <div class="auth-links">
-                <a href="{% url 'login' %}" class="auth-link">登入</a>
-                <a href="{% url 'register' %}" class="auth-link">註冊</a>
-            </div>
+          <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
+          <a href="{% url 'register' %}" class="btn btn-sm btn-ghost">註冊</a>
         {% endif %}
-
-        <div class="nav-links">
-            <a href="{% url 'leaderboard' %}" class="nav-link">🏆 排行榜</a>
-            <a href="{% url 'wrong_answers' %}" class="nav-link">❌ 錯題複習</a>
-            <a href="{% url 'quiz_records' %}" class="nav-link">📝 作答記錄</a>
-        </div>
-
-        <a href="{% url 'random_quiz' %}" class="start-btn">開始作答</a>
-
-        {% if user.is_authenticated %}
-            <div class="auth-links" style="margin-top: 30px;">
-                <a href="{% url 'logout' %}" class="auth-link">登出</a>
-            </div>
-        {% endif %}
+      </div>
     </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- Hero -->
+      <div class="hero">
+        <div class="hero-label">📚 資料結構期末專題</div>
+        <h1 class="hero-title">主題測驗網站</h1>
+        <p class="hero-sub">選擇章節開始測驗，系統將隨機出題並記錄你的學習歷程。</p>
+      </div>
+
+      <!-- Feature Intro -->
+      <div class="feature-card">
+        <div class="feature-grid">
+          <div class="feature-item">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-body">
+              <div class="feature-title">章節測驗</div>
+              <div class="feature-desc">第7章 樹狀結構 · 共 {{ total_questions }} 題，含 {{ new_questions }} 題自編題目</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">🔄</div>
+            <div class="feature-body">
+              <div class="feature-title">間隔學習</div>
+              <div class="feature-desc">答錯的題目會重複出現，附詳解幫你真正搞懂，最多三輪強化</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">🏆</div>
+            <div class="feature-body">
+              <div class="feature-title">排行紀錄</div>
+              <div class="feature-desc">一般排行比分數，間隔學習排行比速度，看看誰學最快</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon">📝</div>
+            <div class="feature-body">
+              <div class="feature-title">錯題複習</div>
+              <div class="feature-desc">自動紀錄每道錯題，隨時回顧錯誤與正確答案</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chapter -->
+      <div class="section-head">
+        <h3 class="section-title">📖 測驗</h3>
+        <span class="section-meta">選擇模式開始作答</span>
+      </div>
+
+      <div class="chapter-grid">
+        {% for ch in chapters %}
+        <a class="chapter-row" href="{% url 'start_quiz' ch.chapter %}">
+          <div class="chapter-icon">🌳</div>
+          <div>
+            <div class="chapter-name">{{ ch.chapter }}</div>
+            <div class="chapter-desc">共 {{ ch.count }} 題 · 樹狀結構</div>
+          </div>
+          <span class="chapter-meta">{{ ch.count }} 題庫</span>
+          <span class="chapter-arrow">→</span>
+        </a>
+        {% endfor %}
+        <a class="chapter-row" href="{% url 'random_quiz' %}">
+          <div class="chapter-icon" style="background:linear-gradient(135deg,var(--amber),var(--rose));">★</div>
+          <div>
+            <div class="chapter-name">隨機挑戰</div>
+            <div class="chapter-desc">跨章節混合出題 · 含間隔學習</div>
+          </div>
+          <span class="chapter-meta">混合挑戰</span>
+          <span class="chapter-arrow">→</span>
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
 </body>
 </html>

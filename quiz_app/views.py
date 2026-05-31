@@ -1,11 +1,36 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from .models import Question, QuizRecord, WrongAnswer, User
 import random
+import json
 
 
 def quiz_home(request):
-    return render(request, 'quiz_app/home.html', {'user': request.user})
+    # 用 Python set 去重，避免 SQLite distinct 在 Unicode 上的問題
+    raw_chapters = list(Question.objects.values_list('chapter', flat=True))
+    unique_chapters = sorted(set(raw_chapters))
+    chapter_count = len(unique_chapters)
+    total_questions = Question.objects.count()
+    new_questions = Question.objects.filter(is_new=True).count()
+
+    chapters_data = []
+    for ch in unique_chapters:
+        count = Question.objects.filter(chapter=ch).count()
+        chapters_data.append({
+            'chapter': ch,
+            'count': count,
+        })
+
+    return render(request, 'quiz_app/home.html', {
+        'user': request.user,
+        'chapters': chapters_data,
+        'total_questions': total_questions,
+        'new_questions': new_questions,
+        'chapter_count': chapter_count,
+    })
 
 
 def login_view(request):
@@ -46,6 +71,39 @@ def logout_view(request):
     return redirect('home')
 
 
+def _build_shuffled_options(q):
+    """建立標籤固定為 A、B、C、D、E，但內容隨機排列的選項，並回傳對應的正確答案字母"""
+    label_order = ['A', 'B', 'C', 'D', 'E']
+
+    # 收集選項內容（按 A→B→C→D→E 順序）
+    option_texts = [q.option_a, q.option_b, q.option_c]
+    if q.option_d:
+        option_texts.append(q.option_d)
+    if q.option_e:
+        option_texts.append(q.option_e)
+    # 只取有實際內容的標籤
+    labels = label_order[:len(option_texts)]
+
+    # 記錄正確答案對應的內容
+    correct_idx = label_order.index(q.correct_answer)
+    correct_text = option_texts[correct_idx] if correct_idx < len(option_texts) else ''
+
+    # 隨機打亂內容
+    random.shuffle(option_texts)
+
+    # 固定標籤配上打亂後的內容
+    options = list(zip(labels, option_texts))
+
+    # 找出正確內容現在落在哪個標籤
+    computed_answer = q.correct_answer  # fallback
+    for label, text in options:
+        if text == correct_text:
+            computed_answer = label
+            break
+
+    return options, computed_answer
+
+
 def random_quiz(request):
     if not request.user.is_authenticated:
         return redirect('login')
@@ -67,29 +125,24 @@ def random_quiz(request):
 
     quiz_data = []
     for q in questions:
-        options = [
-            ('A', q.option_a),
-            ('B', q.option_b),
-            ('C', q.option_c),
-        ]
-        if q.option_d:
-            options.append(('D', q.option_d))
-        if q.option_e:
-            options.append(('E', q.option_e))
+        options, computed_answer = _build_shuffled_options(q)
 
         quiz_data.append({
             'id': q.id,
             'question': q.question_text,
             'question_image': q.question_image.url if q.question_image else None,
             'options': options,
-            'correct_answer': q.correct_answer,
+            'correct_answer': computed_answer,
         })
 
     request.session['quiz_data'] = quiz_data
     request.session['chapter'] = '隨機測驗'
     request.session['start_time'] = None
+    request.session['sr_enabled'] = True
+    request.session['sr_wrong_ids'] = []
+    request.session['sr_round'] = 0
 
-    return render(request, 'quiz_app/quiz.html', {
+    return render(request, 'quiz_app/take_quiz.html', {
         'quiz_data': quiz_data,
         'chapter': '隨機測驗',
     })
@@ -99,34 +152,67 @@ def start_quiz(request, chapter):
     if not request.user.is_authenticated:
         return redirect('login')
 
+    total = Question.objects.filter(chapter=chapter).count()
+    estimated_minutes = max(5, total)
+
+    # 取得最近一次記錄
+    recent_record = QuizRecord.objects.filter(
+        user=request.user, chapter=chapter
+    ).order_by('-created_at').first()
+
+    # 產生章節縮寫
+    chapter_slug = chapter.replace(' ', '_').replace('　', '_')
+
+    return render(request, 'quiz_app/quiz.html', {
+        'chapter': chapter,
+        'chapter_slug': chapter_slug,
+        'total': total,
+        'estimated_minutes': estimated_minutes,
+        'recent_record': recent_record,
+        'user': request.user,
+    })
+
+
+def take_quiz(request, chapter):
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    count = request.GET.get('count', None)
+    sr = request.GET.get('sr', '0') == '1'
+
     questions = list(Question.objects.filter(chapter=chapter))
     random.shuffle(questions)
 
+    # 根據 count 限制題數
+    if count is not None:
+        try:
+            count = int(count)
+            if count < len(questions):
+                questions = questions[:count]
+        except (ValueError, TypeError):
+            pass
+
     quiz_data = []
     for q in questions:
-        options = [
-            ('A', q.option_a),
-            ('B', q.option_b),
-            ('C', q.option_c),
-        ]
-        if q.option_d:
-            options.append(('D', q.option_d))
-        if q.option_e:
-            options.append(('E', q.option_e))
-
+        options, computed_answer = _build_shuffled_options(q)
         quiz_data.append({
             'id': q.id,
             'question': q.question_text,
             'question_image': q.question_image.url if q.question_image else None,
             'options': options,
-            'correct_answer': q.correct_answer,
+            'correct_answer': computed_answer,
+            'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
+            'explanation': q.explanation or '',
         })
 
     request.session['quiz_data'] = quiz_data
     request.session['chapter'] = chapter
     request.session['start_time'] = None
+    request.session['sr_enabled'] = sr
+    request.session['sr_wrong_ids'] = []  # 用於間隔學習的錯題 ID
+    request.session['sr_round'] = 0
 
-    return render(request, 'quiz_app/quiz.html', {
+    return render(request, 'quiz_app/take_quiz.html', {
         'quiz_data': quiz_data,
         'chapter': chapter,
     })
@@ -136,11 +222,15 @@ def submit_quiz(request):
     if request.method == 'POST':
         quiz_data = request.session.get('quiz_data', [])
         chapter = request.session.get('chapter', '')
+        sr_enabled = request.session.get('sr_enabled', False)
+        sr_wrong_ids = request.session.get('sr_wrong_ids', [])
+        sr_round = request.session.get('sr_round', 0)
         time_spent = int(request.POST.get('time_spent', 0))
 
         results = []
         correct_count = 0
         wrong_answers = []
+        new_wrong_ids = []
 
         for item in quiz_data:
             question_id = item['id']
@@ -155,6 +245,8 @@ def submit_quiz(request):
                     'question_id': question_id,
                     'user_answer': user_answer,
                 })
+                if question_id not in new_wrong_ids:
+                    new_wrong_ids.append(question_id)
 
             results.append({
                 'question': item['question'],
@@ -162,12 +254,45 @@ def submit_quiz(request):
                 'user_answer': user_answer,
                 'correct_answer': correct_answer,
                 'is_correct': is_correct,
+                'explanation': item.get('explanation', ''),
             })
 
         total_questions = len(results)
         score = (correct_count / total_questions * 100) if total_questions > 0 else 0
 
-        # 計算時間格式
+        # 間隔學習法：將錯題加入 SR 佇列
+        if sr_enabled and new_wrong_ids and sr_round < 3:
+            # 合併新的錯題與尚未複習的錯題
+            sr_wrong_ids = list(set(sr_wrong_ids + new_wrong_ids))
+            # 從資料庫取出錯題
+            wrong_questions = list(Question.objects.filter(id__in=sr_wrong_ids))
+            random.shuffle(wrong_questions)
+
+            sr_quiz_data = []
+            for q in wrong_questions:
+                options, computed_answer = _build_shuffled_options(q)
+                sr_quiz_data.append({
+                    'id': q.id,
+                    'question': q.question_text,
+                    'question_image': q.question_image.url if q.question_image else None,
+                    'options': options,
+                    'correct_answer': computed_answer,
+                    'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
+                    'explanation': q.explanation or '',
+                })
+
+            # 更新 session
+            request.session['quiz_data'] = sr_quiz_data
+            request.session['sr_wrong_ids'] = sr_wrong_ids
+            request.session['sr_round'] = sr_round + 1
+
+            return render(request, 'quiz_app/take_quiz.html', {
+                'quiz_data': sr_quiz_data,
+                'chapter': chapter,
+                'sr_round': sr_round + 1,
+            })
+
+        # 時間格式
         time_minutes = time_spent // 60
         time_seconds = time_spent % 60
 
@@ -179,6 +304,7 @@ def submit_quiz(request):
             correct_count=correct_count,
             score=score,
             time_spent=time_spent,
+            is_sr=sr_enabled,
         )
 
         # 保存錯題記錄
@@ -190,6 +316,11 @@ def submit_quiz(request):
                 user_answer=wrong['user_answer'],
             )
 
+        # 清除 SR session
+        request.session.pop('sr_enabled', None)
+        request.session.pop('sr_wrong_ids', None)
+        request.session.pop('sr_round', None)
+
         return render(request, 'quiz_app/result.html', {
             'results': results,
             'correct_count': correct_count,
@@ -199,6 +330,8 @@ def submit_quiz(request):
             'time_spent': time_spent,
             'time_minutes': time_minutes,
             'time_seconds': time_seconds,
+            'sr_used': sr_enabled,
+            'sr_rounds': sr_round + 1 if sr_enabled else 0,
         })
 
     return render(request, 'quiz_app/home.html')
@@ -212,12 +345,20 @@ def quiz_records(request):
 
 
 def leaderboard(request):
-    records = QuizRecord.objects.all().order_by('-score')[:20]
-    # 為每個記錄計算時間格式
+    records = QuizRecord.objects.filter(is_sr=False).order_by('-score')[:20]
     for record in records:
         record.time_minutes = record.time_spent // 60
         record.time_seconds = record.time_spent % 60
-    return render(request, 'quiz_app/leaderboard.html', {'records': records})
+    return render(request, 'quiz_app/leaderboard.html', {'records': records, 'mode': 'general'})
+
+
+def sr_leaderboard(request):
+    # 間隔學習排行榜：按時間升序（最快完成排第一）
+    records = QuizRecord.objects.filter(is_sr=True).order_by('time_spent')[:20]
+    for record in records:
+        record.time_minutes = record.time_spent // 60
+        record.time_seconds = record.time_spent % 60
+    return render(request, 'quiz_app/leaderboard.html', {'records': records, 'mode': 'sr'})
 
 
 def wrong_answers(request):
@@ -278,3 +419,259 @@ def review_wrong(request, wrong_id):
         'user_answer': wrong.user_answer,
         'correct_answer': question.correct_answer,
     })
+
+
+def admin_panel(request):
+    """自訂管理後台"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return redirect('home')
+
+    raw_chapters = list(Question.objects.values_list('chapter', flat=True))
+    unique_chapters = sorted(set(raw_chapters))
+    total_questions = Question.objects.count()
+    new_questions = Question.objects.filter(is_new=True).count()
+    total_users = User.objects.count()
+    total_records = QuizRecord.objects.count()
+
+    chapters_data = []
+    for ch in unique_chapters:
+        count = Question.objects.filter(chapter=ch).count()
+        chapters_data.append({
+            'chapter': ch,
+            'count': count,
+        })
+
+    # 搜集所有題目（含來源標記）
+    questions = []
+    for q in Question.objects.all().order_by('question_number'):
+        questions.append({
+            'id': q.id,
+            'chapter': q.chapter,
+            'number': q.question_number,
+            'text': q.question_text[:80] + '...' if len(q.question_text) > 80 else q.question_text,
+            'option_a': q.option_a[:30] + '...' if q.option_a and len(q.option_a) > 30 else (q.option_a or ''),
+            'option_b': q.option_b[:30] + '...' if q.option_b and len(q.option_b) > 30 else (q.option_b or ''),
+            'option_c': q.option_c[:30] + '...' if q.option_c and len(q.option_c) > 30 else (q.option_c or ''),
+            'option_d': q.option_d[:30] + '...' if q.option_d and len(q.option_d) > 30 else (q.option_d or ''),
+            'option_e': q.option_e[:30] + '...' if q.option_e and len(q.option_e) > 30 else (q.option_e or ''),
+            'correct_answer': q.correct_answer,
+            'difficulty': q.get_difficulty_display(),
+            'is_new': q.is_new,
+            'has_image': bool(q.question_image),
+        })
+
+    # 測驗統計
+    records = QuizRecord.objects.all().order_by('-created_at')[:20]
+    records_data = []
+    for r in records:
+        records_data.append({
+            'id': r.id,
+            'user': str(r.user.nickname or r.user.username),
+            'chapter': r.chapter,
+            'score': r.score,
+            'correct_count': r.correct_count,
+            'total': r.total_questions,
+            'time_spent': r.time_spent,
+            'is_sr': r.is_sr,
+            'date': r.created_at.strftime('%m/%d %H:%M'),
+        })
+
+    return render(request, 'quiz_app/admin_panel.html', {
+        'chapters': chapters_data,
+        'questions': questions,
+        'records': records_data,
+        'users': User.objects.all().order_by('username'),
+        'total_questions': total_questions,
+        'new_questions': new_questions,
+        'total_users': total_users,
+        'total_records': total_records,
+    })
+
+
+@require_http_methods(['GET'])
+def api_get_question(request, qid):
+    """回傳單一題目的 JSON 資料（供 admin modal 編輯用）"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        q = Question.objects.get(id=qid)
+    except Question.DoesNotExist:
+        return JsonResponse({'error': '題目不存在'}, status=404)
+
+    return JsonResponse({
+        'id': q.id,
+        'chapter': q.chapter,
+        'question_number': q.question_number,
+        'question_text': q.question_text,
+        'question_image': q.question_image.url if q.question_image else None,
+        'option_a': q.option_a,
+        'option_b': q.option_b,
+        'option_c': q.option_c,
+        'option_d': q.option_d or '',
+        'option_e': q.option_e or '',
+        'correct_answer': q.correct_answer,
+        'difficulty': q.difficulty,
+        'is_new': q.is_new,
+        'explanation': q.explanation or '',
+    })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_update_question(request, qid):
+    """接收表單資料更新題目（供 admin modal 儲存用）"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        q = Question.objects.get(id=qid)
+    except Question.DoesNotExist:
+        return JsonResponse({'error': '題目不存在'}, status=404)
+
+    # 支援 JSON 和 multipart/form-data
+    try:
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body)
+        else:
+            data = request.POST.dict()
+    except (json.JSONDecodeError, AttributeError):
+        data = request.POST.dict()
+
+    # 可更新的欄位
+    try:
+        q.chapter = data.get('chapter', q.chapter)
+        q.question_number = int(data.get('question_number', q.question_number))
+        q.question_text = data.get('question_text', q.question_text)
+        q.option_a = data.get('option_a', q.option_a)
+        q.option_b = data.get('option_b', q.option_b)
+        q.option_c = data.get('option_c', q.option_c)
+        q.option_d = data.get('option_d', q.option_d) or None
+        q.option_e = data.get('option_e', q.option_e) or None
+        q.correct_answer = data.get('correct_answer', q.correct_answer)
+        q.difficulty = data.get('difficulty', q.difficulty)
+        q.is_new = data.get('is_new', 'false').lower() in ('true', '1', 'on')
+        q.explanation = data.get('explanation', q.explanation) or ''
+
+        # 圖片處理
+        clear_image = data.get('clear_image', 'false').lower() in ('true', '1')
+        if 'question_image' in request.FILES:
+            q.question_image = request.FILES['question_image']
+        elif clear_image and q.question_image:
+            q.question_image.delete(save=False)
+            q.question_image = None
+
+        q.save()
+
+        return JsonResponse({'success': True})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_delete_question(request, qid):
+    """刪除題目"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        q = Question.objects.get(id=qid)
+        # 刪除圖片檔案
+        if q.question_image:
+            q.question_image.delete(save=False)
+        q.delete()
+        return JsonResponse({'success': True})
+    except Question.DoesNotExist:
+        return JsonResponse({'error': '題目不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_create_question(request):
+    """新增題目"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        data = request.POST.dict()
+        q = Question.objects.create(
+            chapter=data.get('chapter', ''),
+            question_number=int(data.get('question_number', 1)),
+            question_text=data.get('question_text', ''),
+            option_a=data.get('option_a', ''),
+            option_b=data.get('option_b', ''),
+            option_c=data.get('option_c', ''),
+            option_d=data.get('option_d') or None,
+            option_e=data.get('option_e') or None,
+            correct_answer=data.get('correct_answer', 'A'),
+            difficulty=data.get('difficulty', 'medium'),
+            is_new=data.get('is_new', 'false').lower() in ('true', '1', 'on'),
+            explanation=data.get('explanation', '') or '',
+        )
+        if 'question_image' in request.FILES:
+            q.question_image = request.FILES['question_image']
+            q.save()
+
+        return JsonResponse({'success': True, 'id': q.id})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_update_user(request, uid):
+    """更新用戶資訊"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        user = User.objects.get(id=uid)
+        data = request.POST.dict()
+        user.nickname = data.get('nickname', user.nickname)
+        user.is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+        user.save()
+        return JsonResponse({'success': True})
+    except User.DoesNotExist:
+        return JsonResponse({'error': '用戶不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_delete_user(request, uid):
+    """刪除用戶"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        user = User.objects.get(id=uid)
+        if user == request.user:
+            return JsonResponse({'error': '不能刪除自己的帳號'}, status=400)
+        user.delete()
+        return JsonResponse({'success': True})
+    except User.DoesNotExist:
+        return JsonResponse({'error': '用戶不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_delete_record(request, rid):
+    """刪除測驗記錄"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        record = QuizRecord.objects.get(id=rid)
+        record.delete()
+        return JsonResponse({'success': True})
+    except QuizRecord.DoesNotExist:
+        return JsonResponse({'error': '記錄不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)

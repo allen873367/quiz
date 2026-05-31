@@ -1,152 +1,123 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>排行榜</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        .header h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        .leaderboard-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .leaderboard-table th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: bold;
-        }
-        .leaderboard-table th:first-child {
-            border-radius: 10px 0 0 0;
-        }
-        .leaderboard-table th:last-child {
-            border-radius: 0 10px 0 0;
-        }
-        .leaderboard-table td {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        .leaderboard-table tr:hover {
-            background: #f8f9fa;
-        }
-        .rank {
-            font-weight: bold;
-            font-size: 18px;
-            text-align: center;
-        }
-        .rank-1 {
-            color: #ffd700;
-            font-size: 24px;
-        }
-        .rank-2 {
-            color: #c0c0c0;
-            font-size: 22px;
-        }
-        .rank-3 {
-            color: #cd7f32;
-            font-size: 20px;
-        }
-        .score {
-            font-weight: bold;
-            color: #667eea;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .no-records {
-            text-align: center;
-            color: #999;
-            padding: 40px;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>排行榜</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🏆 排行榜</h1>
-            <p>最近20次測驗成績</p>
-        </div>
+<div class="app">
 
-        {% if records %}
-            <table class="leaderboard-table">
-                <thead>
-                    <tr>
-                        <th style="text-align: center;">排名</th>
-                        <th>使用者</th>
-                        <th>章節</th>
-                        <th>成績</th>
-                        <th>答對/總題數</th>
-                        <th>耗時</th>
-                        <th>時間</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for record in records %}
-                        <tr>
-                            <td class="rank rank-{{ forloop.counter }}">
-                                {% if forloop.counter == 1 %}🥇
-                                {% elif forloop.counter == 2 %}🥈
-                                {% elif forloop.counter == 3 %}🥉
-                                {% else %}{{ forloop.counter }}{% endif %}
-                            </td>
-                            <td>{{ record.user.nickname|default:record.user.username|default:"訪客" }}</td>
-                            <td>{{ record.chapter }}</td>
-                            <td class="score">{{ record.score|floatformat:0 }}分</td>
-                            <td>{{ record.correct_count }}/{{ record.total_questions }}</td>
-                            <td>
-                                {% if record.time_minutes > 0 %}{{ record.time_minutes }}分 {% endif %}{{ record.time_seconds }}秒
-                            </td>
-                            <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link active" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% else %}
-            <div class="no-records">
-                <p>目前沒有作答記錄</p>
-            </div>
+          <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
         {% endif %}
-
-        <div style="text-align: center;">
-            <a href="{% url 'home' %}" class="back-link">← 返回首頁</a>
-        </div>
+      </div>
     </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="dim" style="font-size:13px;margin-bottom:24px;">
+        🏆 排行榜
+      </div>
+
+      <div class="section-head">
+        <h3 class="section-title">🏆 排行榜</h3>
+        <span class="section-meta">前 20 名</span>
+      </div>
+
+      <!-- 模式切換 -->
+      <div class="seg" style="margin-bottom:24px;">
+        <a href="{% url 'leaderboard' %}" class="{% if mode == 'general' %}active{% endif %}">一般排行</a>
+        <a href="{% url 'sr_leaderboard' %}" class="{% if mode == 'sr' %}active{% endif %}">間隔學習排行</a>
+      </div>
+
+      {% if records %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="text-align:center;">#</th>
+            <th>用戶</th>
+            <th>章節</th>
+            <th>分數</th>
+            <th>答對/總題數</th>
+            <th>時間</th>
+            <th>日期</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in records %}
+          <tr>
+            <td style="text-align:center;">
+              {% if forloop.counter == 1 %}
+              <span class="rank-medal rank-1">1</span>
+              {% elif forloop.counter == 2 %}
+              <span class="rank-medal rank-2">2</span>
+              {% elif forloop.counter == 3 %}
+              <span class="rank-medal rank-3">3</span>
+              {% else %}
+              <span class="mono dim">{{ forloop.counter }}</span>
+              {% endif %}
+            </td>
+            <td>{{ record.user.nickname|default:record.user.username|default:"匿名" }}</td>
+            <td>{{ record.chapter }}</td>
+            <td style="color:var(--emerald);font-weight:600;">{{ record.score|floatformat:0 }}</td>
+            <td>{{ record.correct_count }}/{{ record.total_questions }}</td>
+            <td>
+              {% if record.time_minutes > 0 %}{{ record.time_minutes }}分{% endif %}{{ record.time_seconds }}秒
+            </td>
+            <td class="dim">{{ record.created_at|date:"Y-m-d H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">
+        <div>
+          {% if mode == 'sr' %}
+            暫無間隔學習記錄
+          {% else %}
+            暫無測驗記錄
+          {% endif %}
+        </div>
+        <div style="margin-top:8px;color:var(--text-faint);">選擇一個章節開始測驗吧</div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:24px;">
+        <a class="btn" href="{% url 'home' %}">← 回首頁</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
 </body>
 </html>

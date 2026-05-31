@@ -1,116 +1,69 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登入</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 400px;
-            width: 100%;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 28px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            color: #333;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-        .error {
-            color: #dc3545;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-        .links {
-            text-align: center;
-            margin-top: 20px;
-        }
-        .links a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .links a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>登入 — 資料結構測驗</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <h1>登入</h1>
-        <form method="post">
+<div class="app">
+
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+      </nav>
+      <div class="header-meta"></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container auth-card">
+      <div class="panel">
+        <div class="panel-header">
+          <span>🔑 登入</span>
+          <span class="tag tag-indigo">歡迎</span>
+        </div>
+        <div class="panel-body" style="padding:32px;">
+          <div style="text-align:center;margin-bottom:24px;">
+            <h1 style="font-size:28px;margin:0;">歡迎回來</h1>
+          </div>
+
+          <form method="post">
             {% csrf_token %}
             <div class="form-group">
-                <label for="username">帳號</label>
-                <input type="text" id="username" name="username" required>
+              <label>&gt; username</label>
+              <input class="input" type="text" name="username" placeholder="輸入帳號..." required autofocus>
             </div>
             <div class="form-group">
-                <label for="password">密碼</label>
-                <input type="password" id="password" name="password" required>
+              <label>&gt; password</label>
+              <input class="input" type="password" name="password" placeholder="輸入密碼..." required>
             </div>
             {% if error %}
-                <p class="error">{{ error }}</p>
+              <p class="error">{{ error }}</p>
             {% endif %}
-            <button type="submit" class="btn">登入</button>
-        </form>
-        <div class="links">
+            <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;margin-top:8px;">
+              登入 →
+            </button>
+          </form>
+
+          <div class="auth-links">
             <p>還沒有帳號？<a href="{% url 'register' %}">註冊</a></p>
             <p><a href="{% url 'home' %}">返回首頁</a></p>
+          </div>
         </div>
+      </div>
     </div>
+  </main>
+
+</div>
 </body>
 </html>

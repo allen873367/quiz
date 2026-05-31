@@ -1,119 +1,85 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作答記錄</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        .header h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        .record-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .record-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            transition: transform 0.2s;
-        }
-        .record-item:hover {
-            transform: translateX(5px);
-        }
-        .record-info {
-            flex: 1;
-        }
-        .record-chapter {
-            font-weight: bold;
-            color: #333;
-            font-size: 18px;
-            margin-bottom: 5px;
-        }
-        .record-time {
-            color: #999;
-            font-size: 14px;
-        }
-        .record-score {
-            font-weight: bold;
-            color: #667eea;
-            font-size: 24px;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .no-records {
-            text-align: center;
-            color: #999;
-            padding: 40px;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>測驗紀錄</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📝 作答記錄</h1>
-        </div>
+<div class="app">
 
-        {% if records %}
-            <div class="record-list">
-                {% for record in records %}
-                    <div class="record-item">
-                        <div class="record-info">
-                            <div class="record-chapter">{{ record.chapter }}</div>
-                            <div class="record-time">{{ record.created_at|date:"Y-m-d H:i" }}</div>
-                        </div>
-                        <div class="record-score">{{ record.score|floatformat:0 }}分</div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="no-records">
-                <p>目前沒有作答記錄</p>
-            </div>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link active" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
-
-        <div style="text-align: center;">
-            <a href="{% url 'home' %}" class="back-link">← 返回首頁</a>
-        </div>
+      </div>
     </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="mono dim" style="font-size:13px;margin-bottom:24px;">
+        📊 測驗紀錄
+      </div>
+
+      <div class="section-head">
+        <h3 class="section-title">📊 歷史紀錄</h3>
+        <span class="section-meta">最近 20 筆</span>
+      </div>
+
+      {% if records %}
+      <div class="record-list">
+        {% for record in records %}
+        <div class="record-row">
+          <div class="record-info">
+            <div class="record-chapter">{{ record.chapter }}</div>
+            <div class="record-time">{{ record.created_at|date:"Y-m-d H:i" }}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="record-score">{{ record.score|floatformat:0 }}<span style="font-size:12px;color:var(--text-dim);">分</span></div>
+            <div class="mono dim" style="font-size:11px;">{{ record.correct_count }}/{{ record.total_questions }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div>暫無測驗紀錄</div>
+        <div style="margin-top:8px;color:var(--text-faint);">選擇一個章節開始測驗吧！</div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:24px;">
+        <a class="btn" href="{% url 'home' %}">← 回首頁</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
 </body>
 </html>

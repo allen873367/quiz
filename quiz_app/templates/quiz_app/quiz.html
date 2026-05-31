@@ -1,194 +1,176 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ chapter }} - 測驗</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        .header h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        .header p {
-            color: #666;
-            font-size: 14px;
-        }
-        .timer {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 30px;
-        }
-        .question-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border-left: 4px solid #667eea;
-        }
-        .question-number {
-            color: #667eea;
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-        .question-text {
-            color: #333;
-            font-size: 18px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-        .question-image {
-            max-width: 100%;
-            height: auto;
-            margin: 15px 0;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
-        .options {
-            display: grid;
-            gap: 12px;
-        }
-        .option-label {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            background: white;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-        }
-        .option-label:hover {
-            background: #e9ecef;
-            border-color: #667eea;
-        }
-        .option-label input[type="radio"] {
-            margin-right: 15px;
-            width: 20px;
-            height: 20px;
-            accent-color: #667eea;
-        }
-        .option-label input[type="radio"]:checked + span {
-            color: #667eea;
-            font-weight: bold;
-        }
-        .submit-btn {
-            display: block;
-            width: 100%;
-            padding: 18px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-            margin-top: 20px;
-        }
-        .submit-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ chapter }} — 資料結構測驗</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>{{ chapter }} - 測驗</h1>
-            <p>共 {{ quiz_data|length }} 題</p>
-        </div>
+<div class="app">
 
-        <div class="timer">
-            ⏱️ 計時：<span id="timer">00:00</span>
-        </div>
-
-        <form method="post" action="{% url 'submit_quiz' %}" id="quizForm">
-            {% csrf_token %}
-            <input type="hidden" name="time_spent" id="timeSpent" value="0">
-            {% for item in quiz_data %}
-                <div class="question-card">
-                    <div class="question-number">第 {{ forloop.counter }} 題</div>
-                    <div class="question-text">{{ item.question }}</div>
-                    {% if item.question_image %}
-                        <img src="{{ item.question_image }}" alt="題目圖片" class="question-image">
-                    {% endif %}
-                    <div class="options">
-                        {% for option_key, option_text in item.options %}
-                            <label class="option-label">
-                                <input type="radio" name="question_{{ item.id }}" value="{{ option_key }}" required>
-                                <span>{{ option_key }}. {{ option_text }}</span>
-                            </label>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
-
-            <button type="submit" class="submit-btn">提交答案</button>
-        </form>
-
-        <a href="{% url 'home' %}" class="back-link">← 返回首頁</a>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
+        {% else %}
+          <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
+        {% endif %}
+      </div>
     </div>
+  </header>
 
-    <script>
-        let seconds = 0;
-        let timerInterval;
+  <main>
+    <div class="container">
 
-        function updateTimer() {
-            seconds++;
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            document.getElementById('timer').textContent =
-                String(minutes).padStart(2, '0') + ':' + String(remainingSeconds).padStart(2, '0');
-            document.getElementById('timeSpent').value = seconds;
-        }
+      <!-- Breadcrumb -->
+      <div class="mono" style="color:var(--text-dim);font-size:13px;margin-bottom:24px;">
+        <a href="{% url 'home' %}">~/home</a>
+        <span> / </span>
+        <span class="indigo">{{ chapter_slug }}</span>
+      </div>
 
-        timerInterval = setInterval(updateTimer, 1000);
+      <!-- Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span><span class="dim">📖</span> {{ chapter }}</span>
+          <span class="tag tag-indigo">主題測驗</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:32px;align-items:start;">
+            <div>
+              <h1 style="font-size:44px;margin:0 0 16px;letter-spacing:-0.02em;line-height:1.1;">
+                {{ chapter }}
+              </h1>
+              {% if chapter_description %}
+              <p style="color:var(--text-muted);max-width:560px;margin-bottom:8px;font-size:15px;">
+                {{ chapter_description }}
+              </p>
+              {% endif %}
 
-        document.getElementById('quizForm').addEventListener('submit', function() {
-            clearInterval(timerInterval);
-        });
-    </script>
+              <!-- Settings panel -->
+              <div class="settings-panel">
+                <div class="panel-label">測驗設定</div>
+
+                <!-- Question count -->
+                <div class="settings-row">
+                  <span class="settings-label">題數</span>
+                  <div class="seg" id="seg-count">
+                    <button data-count="5" onclick="setCount(5)">5 題</button>
+                    <button data-count="10" onclick="setCount(10)">10 題</button>
+                    <button data-count="{{ total }}" onclick="setCount({{ total }})" class="active">全部 ({{ total }})</button>
+                  </div>
+                  <span class="settings-help" id="time-hint">約 {{ estimated_minutes }} 分鐘</span>
+                </div>
+
+                <!-- Spaced repetition -->
+                <div class="settings-row">
+                  <span class="settings-label">間隔學習</span>
+                  <div class="toggle on" id="toggle-sr" onclick="toggleSr()" role="switch" aria-checked="true">
+                    <span class="toggle-track"></span>
+                    <span class="toggle-label" id="sr-label">已開啟</span>
+                  </div>
+                  <span class="settings-help">答錯的題目會反覆出現直到你答對為止</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- History sidebar -->
+            <div style="width:220px;">
+              <div class="panel-label">統計</div>
+              <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+                <div style="padding:12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);text-align:center;">
+                  <div class="mono" style="font-size:24px;margin-bottom:4px;">{{ total }}</div>
+                  <div style="font-size:12px;color:var(--text-muted);">總題數</div>
+                </div>
+              </div>
+              {% if user.is_authenticated and recent_record %}
+              <div style="margin-top:12px;">
+                <div class="mono" style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+                  最近分數
+                </div>
+                <div style="padding:12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);">
+                  <div class="mono" style="font-size:18px;margin-bottom:4px;">{{ recent_record.score|floatformat:0 }}<span style="font-size:12px;color:var(--text-dim);">分</span></div>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ recent_record.created_at|date:"m/d H:i" }}
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action button -->
+      <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
+        <a class="btn btn-primary btn-lg" id="btn-start"
+           href="{% url 'take_quiz' chapter %}?count={{ total }}&sr=1">
+          🚀 開始作答 · {{ total }} 題 · 間隔學習
+        </a>
+        <a class="btn btn-lg" href="{% url 'home' %}">← 回首頁</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var count = {{ total }};
+  var sr = true;
+
+  window.setCount = function (n) {
+    count = n;
+    document.querySelectorAll('#seg-count button').forEach(function (btn) {
+      btn.classList.toggle('active', parseInt(btn.dataset.count, 10) === n);
+    });
+    var mins = Math.max(3, Math.ceil(n * 1));
+    document.getElementById('time-hint').textContent = '約 ' + mins + ' 分鐘';
+    updateStartLink();
+  };
+
+  window.toggleSr = function () {
+    sr = !sr;
+    var el = document.getElementById('toggle-sr');
+    el.classList.toggle('on', sr);
+    el.setAttribute('aria-checked', String(sr));
+    document.getElementById('sr-label').textContent = sr ? '已開啟' : '已關閉';
+    updateStartLink();
+  };
+
+  function updateStartLink() {
+    var link = document.getElementById('btn-start');
+    var base = link.href.split('?')[0];
+    link.href = base + '?count=' + count + '&sr=' + (sr ? '1' : '0');
+    var label = '🚀 開始作答 · ' + count + ' 題';
+    if (sr) label += ' · 間隔學習';
+    link.textContent = label;
+  }
+}());
+</script>
+
 </body>
 </html>

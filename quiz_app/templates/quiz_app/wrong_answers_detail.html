@@ -1,194 +1,107 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>錯題詳情</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        .header h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        .header p {
-            color: #666;
-            font-size: 14px;
-        }
-        .wrong-list {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        .wrong-item {
-            background: #f8d7da;
-            border-left: 4px solid #dc3545;
-            border-radius: 15px;
-            padding: 25px;
-        }
-        .wrong-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .wrong-chapter {
-            font-weight: bold;
-            color: #dc3545;
-            font-size: 14px;
-        }
-        .question-text {
-            color: #333;
-            font-size: 18px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-        .answer-comparison {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .answer-box {
-            flex: 1;
-            padding: 15px;
-            border-radius: 10px;
-        }
-        .user-answer-box {
-            background: #dc3545;
-            color: white;
-        }
-        .correct-answer-box {
-            background: #28a745;
-            color: white;
-        }
-        .answer-label {
-            font-size: 12px;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-        .answer-value {
-            font-size: 20px;
-            font-weight: bold;
-        }
-        .options {
-            display: grid;
-            gap: 10px;
-        }
-        .option-item {
-            padding: 12px 15px;
-            background: white;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-        }
-        .option-item.user-answer {
-            border: 2px solid #dc3545;
-            background: #f8d7da;
-        }
-        .option-item.correct-answer {
-            border: 2px solid #28a745;
-            background: #d4edda;
-        }
-        .option-label {
-            font-weight: bold;
-            margin-right: 15px;
-            min-width: 30px;
-        }
-        .option-text {
-            flex: 1;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .no-wrong {
-            text-align: center;
-            color: #999;
-            padding: 40px;
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>錯題詳情</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>錯題詳情</h1>
-            <p>{{ record.chapter }} - {{ record.created_at|date:"Y-m-d H:i" }}</p>
-        </div>
+<div class="app">
 
-        {% if wrong_answers %}
-            <div class="wrong-list">
-                {% for item in wrong_answers %}
-                    {% with wrong=item.wrong options=item.options %}
-                    <div class="wrong-item">
-                        <div class="wrong-header">
-                            <div class="wrong-chapter">{{ wrong.question.chapter }} - 第{{ wrong.question.question_number }}題</div>
-                        </div>
-                        <div class="question-text">{{ wrong.question.question_text }}</div>
-
-                        <div class="answer-comparison">
-                            <div class="answer-box user-answer-box">
-                                <div class="answer-label">你的答案</div>
-                                <div class="answer-value">{{ wrong.user_answer }}</div>
-                            </div>
-                            <div class="answer-box correct-answer-box">
-                                <div class="answer-label">正確答案</div>
-                                <div class="answer-value">{{ wrong.question.correct_answer }}</div>
-                            </div>
-                        </div>
-
-                        <div class="options">
-                            {% for option_key, option_text in options %}
-                                <div class="option-item
-                                    {% if option_key == wrong.user_answer %}user-answer{% endif %}
-                                    {% if option_key == wrong.question.correct_answer %}correct-answer{% endif %}">
-                                    <span class="option-label">{{ option_key }}.</span>
-                                    <span class="option-text">{{ option_text }}</span>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endwith %}
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="no-wrong">
-                <p>這次測驗沒有錯題！🎉</p>
-            </div>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link active" href="{% url 'wrong_answers' %}">複習</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
         {% endif %}
-
-        <div style="text-align: center;">
-            <a href="{% url 'wrong_answers' %}" class="back-link">← 返回錯題列表</a>
-        </div>
+      </div>
     </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="mono dim" style="font-size:13px;margin-bottom:24px;">
+        <a href="{% url 'wrong_answers' %}" style="color:inherit;">~/review</a>
+        <span> / </span>
+        <span class="cyan">detail</span>
+      </div>
+
+      <div class="section-head">
+        <h3 class="section-title">review / 錯題詳情</h3>
+        <span class="section-meta">{{ record.chapter }} · {{ record.created_at|date:"Y-m-d H:i" }}</span>
+      </div>
+
+      {% if wrong_answers %}
+      <div class="wrong-list">
+        {% for item in wrong_answers %}
+        {% with wrong=item.wrong options=item.options %}
+        <div class="wrong-item">
+          <div class="mono dim" style="font-size:12px;margin-bottom:8px;">
+            {{ wrong.question.chapter }} · 第{{ wrong.question.question_number }}題
+          </div>
+          <div style="font-size:16px;margin-bottom:16px;line-height:1.6;">{{ wrong.question.question_text }}</div>
+
+          <div style="display:flex;gap:16px;margin-bottom:16px;">
+            <div style="flex:1;padding:12px 16px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);">
+              <div class="mono dim" style="font-size:11px;margin-bottom:4px;">你的答案</div>
+              <div style="font-size:18px;font-weight:600;color:var(--red);">{{ wrong.user_answer|default:"(未作答)" }}</div>
+            </div>
+            <div style="flex:1;padding:12px 16px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--radius);">
+              <div class="mono dim" style="font-size:11px;margin-bottom:4px;">正確答案</div>
+              <div style="font-size:18px;font-weight:600;color:var(--green);">{{ wrong.question.correct_answer }}</div>
+            </div>
+          </div>
+
+          <div class="options">
+            {% for option_key, option_text in options %}
+            <div class="option {% if option_key == wrong.user_answer %}wrong{% elif option_key == wrong.question.correct_answer %}correct{% else %}faded{% endif %}" style="cursor:default;">
+              <span class="opt-letter">{{ option_key }}</span>
+              <span class="opt-text">{{ option_text }}</span>
+              {% if option_key == wrong.question.correct_answer %}
+              <span class="opt-mark" style="color:var(--green);">✓</span>
+              {% elif option_key == wrong.user_answer %}
+              <span class="opt-mark" style="color:var(--red);">✗</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div>這次測驗沒有錯題！🎉</div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:24px;">
+        <a class="btn" href="{% url 'wrong_answers' %}">← 返回錯題列表</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
 </body>
 </html>

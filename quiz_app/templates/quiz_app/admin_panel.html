@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>管理後台 — 資料結構測驗</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link active" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="admin-layout">
+
+      <!-- ═══ Sidebar ═══ -->
+      <aside class="admin-sidebar" id="admin-sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">管理後台</div>
+          <div class="sidebar-sub">資料結構系統</div>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebar-nav">
+          <a class="snav-item active" data-tab="questions" href="#">
+            <span class="snav-icon">📝</span>
+            <span class="snav-label">題目管理</span>
+            <span class="snav-badge">{{ total_questions }}</span>
+          </a>
+          <a class="snav-item" data-tab="records" href="#">
+            <span class="snav-icon">📊</span>
+            <span class="snav-label">測驗紀錄</span>
+            <span class="snav-badge">{{ total_records }}</span>
+          </a>
+          <a class="snav-item" data-tab="users" href="#">
+            <span class="snav-icon">👥</span>
+            <span class="snav-label">用戶管理</span>
+            <span class="snav-badge">{{ total_users }}</span>
+          </a>
+          <a class="snav-item" data-tab="info" href="#">
+            <span class="snav-icon">ℹ️</span>
+            <span class="snav-label">系統資訊</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <a href="/admin/" class="btn btn-sm btn-ghost" style="width:100%;justify-content:center;" target="_blank">
+            Django 原生後台 →
+          </a>
+        </div>
+      </aside>
+
+      <!-- ═══ Main Content ═══ -->
+      <div class="admin-main">
+
+        <!-- ── 題目管理 Tab ── -->
+        <div class="admin-tab active" id="tab-questions">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar-left">
+              <h3 class="section-title" style="margin:0;">📝 題目列表</h3>
+              <div class="filter-group">
+                <select class="input input-sm" id="chapter-filter" onchange="filterQuestions()">
+                  <option value="">全部章節</option>
+                  {% for ch in chapters %}
+                  <option value="{{ ch.chapter }}">{{ ch.chapter }}（{{ ch.count }} 題）</option>
+                  {% endfor %}
+                </select>
+                <select class="input input-sm" id="source-filter" onchange="filterQuestions()">
+                  <option value="">全部來源</option>
+                  <option value="new">自編題目</option>
+                  <option value="teacher">老師題目</option>
+                </select>
+                <input class="input input-sm" id="search-input" type="text" placeholder="搜尋題目關鍵字..." oninput="filterQuestions()" style="width:200px;">
+              </div>
+            </div>
+            <div class="admin-toolbar-right">
+              <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新增題目</button>
+            </div>
+          </div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="question-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;">#</th>
+                  <th style="width:70px;">章節</th>
+                  <th>題目</th>
+                  <th style="width:50px;">正解</th>
+                  <th style="width:60px;">難易度</th>
+                  <th style="width:50px;">圖片</th>
+                  <th style="width:60px;">來源</th>
+                  <th style="width:80px;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for q in questions %}
+                <tr class="q-row" data-chapter="{{ q.chapter }}" data-source="{% if q.is_new %}new{% else %}teacher{% endif %}" data-search="{{ q.text|lower }}" onclick="openEditModal({{ q.id }})" style="cursor:pointer;">
+                  <td class="dim">{{ q.number }}</td>
+                  <td><span class="tag tag-sm tag-indigo">{{ q.chapter|slice:"4:" }}</span></td>
+                  <td class="q-text">{{ q.text }}</td>
+                  <td><span class="tag tag-sm tag-green">{{ q.correct_answer }}</span></td>
+                  <td>
+                    {% if q.difficulty == '簡單' %}
+                    <span class="tag tag-sm tag-green">簡單</span>
+                    {% elif q.difficulty == '中等' %}
+                    <span class="tag tag-sm tag-amber">中等</span>
+                    {% else %}
+                    <span class="tag tag-sm tag-red">困難</span>
+                    {% endif %}
+                  </td>
+                  <td class="dim" style="text-align:center;">{% if q.has_image %}🖼️{% else %}—{% endif %}</td>
+                  <td>{% if q.is_new %}<span class="tag tag-sm tag-purple">自編</span>{% else %}<span class="tag tag-sm tag-gray">課程</span>{% endif %}</td>
+                  <td>
+                    <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();openEditModal({{ q.id }})" style="padding:2px 10px;font-size:11px;">編輯</button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="admin-table-footer" id="table-footer">
+            <span class="dim">顯示 <strong id="shown-count">{{ questions|length }}</strong> / {{ questions|length }} 題</span>
+            <span class="dim">點擊題目或「編輯」按鈕直接修改內容</span>
+          </div>
+        </div>
+
+        <!-- ── 測驗紀錄 Tab ── -->
+        <div class="admin-tab" id="tab-records">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar-left">
+              <h3 class="section-title" style="margin:0;">📊 近期測驗紀錄</h3>
+            </div>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>用戶</th>
+                  <th>章節</th>
+                  <th>分數</th>
+                  <th>答對</th>
+                  <th>時間</th>
+                  <th>類型</th>
+                  <th>日期</th>
+                  <th style="width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in records %}
+                <tr>
+                  <td>{{ r.user }}</td>
+                  <td>{{ r.chapter|truncatechars:12 }}</td>
+                  <td><span class="tag tag-sm {% if r.score >= 80 %}tag-green{% elif r.score >= 60 %}tag-amber{% else %}tag-red{% endif %}">{{ r.score }}</span></td>
+                  <td>{{ r.correct_count }}/{{ r.total }}</td>
+                  <td class="dim">{{ r.time_spent }}s</td>
+                  <td>{% if r.is_sr %}<span class="tag tag-sm tag-purple">間隔</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>
+                  <td class="dim">{{ r.date }}</td>
+                  <td><button class="btn btn-sm btn-ghost" onclick="deleteRecord({{ r.id }},'{{ r.user }} - {{ r.chapter|truncatechars:10 }}')" style="padding:2px 8px;font-size:11px;color:var(--rose);">刪除</button></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="dim" style="text-align:center;padding:32px;">尚無測驗紀錄</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── 用戶管理 Tab ── -->
+        <div class="admin-tab" id="tab-users">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar-left">
+              <h3 class="section-title" style="margin:0;">👥 用戶列表</h3>
+            </div>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>用戶名</th>
+                  <th>暱稱</th>
+                  <th>Email</th>
+                  <th>管理員</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in users %}
+                <tr>
+                  <td>{{ u.username }}</td>
+                  <td>{{ u.nickname|default:"—" }}</td>
+                  <td class="dim">{{ u.email|default:"—" }}</td>
+                  <td>{% if u.is_staff %}<span class="tag tag-sm tag-indigo">管理員</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>
+                  <td style="display:flex;gap:4px;">
+                    <button class="btn btn-sm btn-ghost" onclick="openUserEdit({{ u.id }},'{{ u.username|escapejs }}','{{ u.nickname|escapejs }}',{{ u.is_staff|lower }})" style="padding:2px 10px;font-size:11px;">編輯</button>
+                    <button class="btn btn-sm btn-ghost" onclick="deleteUser({{ u.id }},'{{ u.username|escapejs }}')" style="padding:2px 10px;font-size:11px;color:var(--rose);">刪除</button>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="dim" style="text-align:center;padding:32px;">尚無用戶</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── 系統資訊 Tab ── -->
+        <div class="admin-tab" id="tab-info">
+          <div class="admin-toolbar">
+            <h3 class="section-title" style="margin:0;">ℹ️ 系統資訊</h3>
+          </div>
+          <div class="info-grid">
+            <div class="info-card">
+              <div class="info-card-icon">📚</div>
+              <div class="info-card-label">題庫總數</div>
+              <div class="info-card-value">{{ total_questions }}</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-icon">✏️</div>
+              <div class="info-card-label">自編題目</div>
+              <div class="info-card-value">{{ new_questions }}</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-icon">👤</div>
+              <div class="info-card-label">註冊用戶</div>
+              <div class="info-card-value">{{ total_users }}</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-icon">📊</div>
+              <div class="info-card-label">測驗次數</div>
+              <div class="info-card-value">{{ total_records }}</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-icon">🧩</div>
+              <div class="info-card-label">章節數</div>
+              <div class="info-card-value">{{ chapters|length }}</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-icon">⚡</div>
+              <div class="info-card-label">框架</div>
+              <div class="info-card-value" style="font-size:16px;">Django 6</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /admin-main -->
+    </div><!-- /admin-layout -->
+  </main>
+
+<!-- ═══ Edit Modal ═══ -->
+<div class="modal-overlay" id="editModal" style="display:none;" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0;" id="modal-title">📝 編輯題目</h3>
+      <button class="modal-close" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">章節</label>
+        <input class="input" id="edit-chapter" placeholder="例如：第7章 樹狀結構">
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">題號</label>
+          <input class="input" id="edit-number" type="number">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">難易度</label>
+          <select class="input" id="edit-difficulty">
+            <option value="easy">簡單</option>
+            <option value="medium">中等</option>
+            <option value="hard">困難</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">正確答案</label>
+          <select class="input" id="edit-answer">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">題目</label>
+        <textarea class="input" id="edit-text" rows="3" placeholder="題目内容..."></textarea>
+      </div>
+      <!-- 選項：垂直排列 -->
+      <div class="form-group"><label class="form-label">選項 A</label><input class="input" id="edit-opt-a"></div>
+      <div class="form-group"><label class="form-label">選項 B</label><input class="input" id="edit-opt-b"></div>
+      <div class="form-group"><label class="form-label">選項 C</label><input class="input" id="edit-opt-c"></div>
+      <div class="form-group"><label class="form-label">選項 D</label><input class="input" id="edit-opt-d" placeholder="留空則無"></div>
+      <div class="form-group"><label class="form-label">選項 E</label><input class="input" id="edit-opt-e" placeholder="留空則無"></div>
+      <!-- 題目圖片 -->
+      <div class="form-group">
+        <label class="form-label">題目圖片</label>
+        <div id="edit-image-area" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <img id="edit-image-preview" style="max-width:200px;max-height:120px;border-radius:var(--radius);border:1px solid var(--glass-border);display:none;">
+          <label class="btn btn-sm" style="cursor:pointer;">
+            選擇圖片
+            <input type="file" id="edit-image-input" accept="image/*" style="display:none;" onchange="previewImage(event)">
+          </label>
+          <button class="btn btn-sm btn-ghost" id="edit-image-delete" style="display:none;color:var(--rose);border-color:var(--rose-border);" onclick="deleteImage()">🗑️ 刪除圖片</button>
+        </div>
+        <span class="dim" style="font-size:11px;">支援 JPG / PNG / GIF，建議尺寸 800x600 內</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="edit-is-new" style="width:18px;height:18px;accent-color:var(--indigo);">
+          <span>自編題目</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">題目詳解</label>
+        <textarea class="input" id="edit-explanation" rows="3" placeholder="作答後顯示的解析說明..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="btn btn-ghost" id="modal-delete-btn" style="color:var(--rose);border-color:var(--rose-border);display:none;margin-right:auto;" onclick="deleteQuestion()">🗑️ 刪除此題目</button>
+      <button class="btn" onclick="closeEditModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveQuestion()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+/* ── Sidebar tab switching ── */
+document.querySelectorAll('.snav-item').forEach(function(el) {
+  el.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.snav-item').forEach(function(x) { x.classList.remove('active'); });
+    this.classList.add('active');
+    var tab = this.getAttribute('data-tab');
+    document.querySelectorAll('.admin-tab').forEach(function(x) { x.classList.remove('active'); });
+    document.getElementById('tab-' + tab).classList.add('active');
+  });
+});
+
+/* ── Question filtering ── */
+function filterQuestions() {
+  var chapter = document.getElementById('chapter-filter').value;
+  var source = document.getElementById('source-filter').value;
+  var search = document.getElementById('search-input').value.toLowerCase();
+  var rows = document.querySelectorAll('.q-row');
+  var shown = 0;
+  rows.forEach(function(row) {
+    var match = true;
+    if (chapter && row.getAttribute('data-chapter') !== chapter) match = false;
+    if (source && row.getAttribute('data-source') !== source) match = false;
+    if (search && row.getAttribute('data-search').indexOf(search) === -1) match = false;
+    row.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  document.getElementById('shown-count').textContent = shown;
+}
+
+/* ── Edit/Add Modal ── */
+var currentEditId = null;
+var modal = document.getElementById('editModal');
+var currentImageUrl = null;
+
+function openEditModal(qid) {
+  currentEditId = qid;
+  document.getElementById('modal-title').textContent = '📝 編輯題目 #' + qid;
+  document.getElementById('modal-delete-btn').style.display = 'inline-flex';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  resetModalImage();
+
+  fetch('/admin-panel/api/question/' + qid + '/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('edit-chapter').value = data.chapter || '';
+      document.getElementById('edit-number').value = data.question_number || '';
+      document.getElementById('edit-text').value = data.question_text || '';
+      document.getElementById('edit-opt-a').value = data.option_a || '';
+      document.getElementById('edit-opt-b').value = data.option_b || '';
+      document.getElementById('edit-opt-c').value = data.option_c || '';
+      document.getElementById('edit-opt-d').value = data.option_d || '';
+      document.getElementById('edit-opt-e').value = data.option_e || '';
+      document.getElementById('edit-answer').value = data.correct_answer || 'A';
+      document.getElementById('edit-difficulty').value = data.difficulty || 'medium';
+      document.getElementById('edit-is-new').checked = data.is_new || false;
+      document.getElementById('edit-explanation').value = data.explanation || '';
+
+      // 載入圖片
+      if (data.question_image) {
+        currentImageUrl = data.question_image;
+        var preview = document.getElementById('edit-image-preview');
+        preview.src = data.question_image;
+        preview.style.display = 'block';
+        document.getElementById('edit-image-delete').style.display = 'inline-flex';
+      }
+    })
+    .catch(function(err) {
+      alert('載入題目失敗：' + err);
+      closeEditModal();
+    });
+}
+
+function openAddModal() {
+  currentEditId = null;
+  document.getElementById('modal-title').textContent = '📝 新增題目';
+  document.getElementById('modal-delete-btn').style.display = 'none';
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  resetModalImage();
+
+  // 清空表單
+  document.getElementById('edit-chapter').value = '';
+  document.getElementById('edit-number').value = '';
+  document.getElementById('edit-text').value = '';
+  document.getElementById('edit-opt-a').value = '';
+  document.getElementById('edit-opt-b').value = '';
+  document.getElementById('edit-opt-c').value = '';
+  document.getElementById('edit-opt-d').value = '';
+  document.getElementById('edit-opt-e').value = '';
+  document.getElementById('edit-answer').value = 'A';
+  document.getElementById('edit-difficulty').value = 'medium';
+  document.getElementById('edit-is-new').checked = true;
+  document.getElementById('edit-explanation').value = '';
+}
+
+function closeEditModal() {
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+  currentEditId = null;
+  currentImageUrl = null;
+}
+
+function resetModalImage() {
+  currentImageUrl = null;
+  document.getElementById('edit-image-input').value = '';
+  var preview = document.getElementById('edit-image-preview');
+  preview.style.display = 'none';
+  preview.src = '';
+  document.getElementById('edit-image-delete').style.display = 'none';
+}
+
+function previewImage(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var preview = document.getElementById('edit-image-preview');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    document.getElementById('edit-image-delete').style.display = 'inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteImage() {
+  currentImageUrl = null;
+  document.getElementById('edit-image-preview').style.display = 'none';
+  document.getElementById('edit-image-preview').src = '';
+  document.getElementById('edit-image-input').value = '';
+  document.getElementById('edit-image-delete').style.display = 'none';
+}
+
+function saveQuestion() {
+  var btn = document.querySelector('.modal-footer .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('chapter', document.getElementById('edit-chapter').value);
+  formData.append('question_number', document.getElementById('edit-number').value);
+  formData.append('question_text', document.getElementById('edit-text').value);
+  formData.append('option_a', document.getElementById('edit-opt-a').value);
+  formData.append('option_b', document.getElementById('edit-opt-b').value);
+  formData.append('option_c', document.getElementById('edit-opt-c').value);
+  formData.append('option_d', document.getElementById('edit-opt-d').value);
+  formData.append('option_e', document.getElementById('edit-opt-e').value);
+  formData.append('correct_answer', document.getElementById('edit-answer').value);
+  formData.append('difficulty', document.getElementById('edit-difficulty').value);
+  formData.append('is_new', document.getElementById('edit-is-new').checked ? 'true' : 'false');
+  formData.append('explanation', document.getElementById('edit-explanation').value);
+
+  // 圖片
+  var fileInput = document.getElementById('edit-image-input');
+  if (fileInput.files.length > 0) {
+    formData.append('question_image', fileInput.files[0]);
+  }
+  if (currentImageUrl === null && !fileInput.files.length) {
+    formData.append('clear_image', 'true');
+  }
+
+  var url, method;
+  if (currentEditId) {
+    url = '/admin-panel/api/question/' + currentEditId + '/update/';
+  } else {
+    url = '/admin-panel/api/question/create/';
+  }
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) {
+        closeEditModal();
+        location.reload();
+      } else {
+        alert('儲存失敗：' + (resp.error || '未知錯誤'));
+        btn.textContent = currentEditId ? '💾 儲存' : '💾 新增';
+        btn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      alert('儲存失敗：' + err);
+      btn.textContent = currentEditId ? '💾 儲存' : '💾 新增';
+      btn.disabled = false;
+    });
+}
+
+function deleteQuestion() {
+  if (!currentEditId) return;
+  if (!confirm('確定要刪除題目 #' + currentEditId + ' 嗎？此操作無法還原。')) return;
+
+  fetch('/admin-panel/api/question/' + currentEditId + '/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) {
+        closeEditModal();
+        location.reload();
+      } else {
+        alert('刪除失敗：' + (resp.error || '未知錯誤'));
+      }
+    });
+}
+
+function getCSRFToken() {
+  var name = 'csrftoken';
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1);
+  }
+  return '';
+}
+
+/* ── 用戶管理：編輯/刪除 ── */
+function openUserEdit(uid, name, nickname, isStaff) {
+  var newNick = prompt('編輯用戶 ' + name + ' 的暱稱：', nickname);
+  if (newNick === null) return;
+  var newStaff = confirm('設定 ' + name + ' 為管理員？\n確定=管理員，取消=一般用戶');
+  var formData = new FormData();
+  formData.append('nickname', newNick);
+  formData.append('is_staff', newStaff ? 'true' : 'false');
+  fetch('/admin-panel/api/user/' + uid + '/update/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) location.reload();
+      else alert('更新失敗：' + (resp.error || ''));
+    });
+}
+
+function deleteUser(uid, name) {
+  if (!confirm('確定要刪除用戶 ' + name + ' 嗎？')) return;
+  fetch('/admin-panel/api/user/' + uid + '/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) location.reload();
+      else alert('刪除失敗：' + (resp.error || ''));
+    });
+}
+
+/* ── 記錄管理：刪除 ── */
+function deleteRecord(rid, info) {
+  if (!confirm('確定要刪除 ' + info + ' 的記錄嗎？')) return;
+  fetch('/admin-panel/api/record/' + rid + '/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) location.reload();
+      else alert('刪除失敗：' + (resp.error || ''));
+    });
+}
+
+/* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && modal.style.display === 'flex') closeEditModal();
+  if (e.key === 'Enter' && e.ctrlKey && modal.style.display === 'flex') saveQuestion();
+});
+</script>
+</body>
+</html>

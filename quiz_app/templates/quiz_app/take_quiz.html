@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ chapter }} — 測驗中</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
+  <style>
+    .qcard { display: none; }
+    .qcard.active { display: block; }
+    .quiz-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
+    .fb-box { display: none; margin-top: 16px; padding: 16px 20px; border-radius: var(--radius); align-items: flex-start; gap: 12px; }
+    .fb-box.show { display: flex; }
+    .fb-box.correct { background: var(--emerald-soft); border: 1px solid var(--emerald-border); }
+    .fb-box.wrong { background: var(--rose-soft); border: 1px solid var(--rose-border); }
+    .fb-icon { font-size: 20px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
+    .fb-box.correct .fb-icon { background: rgba(52,211,153,0.2); color: var(--emerald); }
+    .fb-box.wrong .fb-icon { background: rgba(251,113,133,0.2); color: var(--rose); }
+    .fb-body { flex: 1; font-size: 14px; line-height: 1.6; }
+    .fb-title { font-weight: 700; margin-bottom: 4px; }
+    .fb-box.correct .fb-title { color: var(--emerald); }
+    .fb-box.wrong .fb-title { color: var(--rose); }
+    .fb-explain { color: var(--text-muted); font-size: 13px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--glass-border); }
+    .option.disabled { pointer-events: none; opacity: 0.6; }
+    .option.disabled.selected { opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
+        {% endif %}
+        <span class="dim" id="sr-tag" style="display:none;">🔄 SR</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="quiz-top">
+        <span><span class="dim">{{ chapter }}</span> / <span id="current-num">1</span><span class="dim"> / {{ quiz_data|length }} 題</span></span>
+        <span class="mono dim">⏱ <span id="timer">00:00</span></span>
+      </div>
+
+      {% if sr_round %}
+      <div class="notice" style="margin-bottom:16px;">
+        🔄 間隔學習第 {{ sr_round }} 輪 — 再次挑戰答錯的題目！
+      </div>
+      {% endif %}
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+
+      <div class="qnav" id="qnav">
+        {% for item in quiz_data %}
+        <button class="qnav-dot {% if forloop.first %}current{% endif %}" data-q="{{ forloop.counter0 }}">
+          {{ forloop.counter }}
+        </button>
+        {% endfor %}
+      </div>
+
+      {% for item in quiz_data %}
+      <div class="qcard {% if forloop.first %}active{% endif %}" data-q="{{ forloop.counter0 }}"
+           data-id="{{ item.id }}" data-answer="{{ item.correct_answer }}" data-explanation="{{ item.explanation|default:''|escape }}">
+        <div class="qhead">
+          <span class="qnum">第 {{ forloop.counter }} 題 / {{ quiz_data|length }}</span>
+          <span class="mono dim">{{ item.difficulty|default:"medium" }}</span>
+        </div>
+
+        <div class="qstem">{{ item.question }}</div>
+
+        {% if item.question_image %}
+        <img src="{{ item.question_image }}" alt="題目圖片" class="qimg">
+        {% endif %}
+
+        <div class="options">
+          {% for option_key, option_text in item.options %}
+          <div class="option" data-key="{{ option_key }}" onclick="pickOption(this, {{ forloop.parentloop.counter0 }})">
+            <span class="opt-letter">{{ option_key }}</span>
+            <span class="opt-text">{{ option_text }}</span>
+            <span class="opt-mark"></span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="fb-box" id="fb-{{ forloop.counter0 }}">
+          <div class="fb-icon"></div>
+          <div class="fb-body">
+            <div class="fb-title"></div>
+            <div class="fb-explain" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="quiz-footer">
+        <button class="btn" id="prevBtn" onclick="prevQuestion()">← 上一題</button>
+        <span class="mono dim" id="answered-count">已答 0 / {{ quiz_data|length }} 題</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">下一題 →</button>
+          <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitQuiz()" style="display:none;">✅ 提交答案</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <form method="post" action="{% url 'submit_quiz' %}" id="quizForm" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="time_spent" id="timeSpent" value="0">
+    {% for item in quiz_data %}
+    <input type="hidden" name="question_{{ item.id }}" id="input_{{ item.id }}" value="">
+    {% endfor %}
+  </form>
+
+  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  var totalQs = {{ quiz_data|length }};
+  var currentQ = 0;
+  var answered = {};
+  var seconds = 0;
+  var timerInterval;
+
+  // Timer
+  timerInterval = setInterval(function() {
+    seconds++;
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    document.getElementById('timer').textContent =
+      String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    document.getElementById('timeSpent').value = seconds;
+  }, 1000);
+
+  {% if sr_round %}
+  document.getElementById('sr-tag').style.display = 'inline';
+  {% endif %}
+
+  function goToQuestion(idx) {
+    document.querySelectorAll('.qcard').forEach(function(c) { c.classList.remove('active'); });
+    document.querySelectorAll('.qnav-dot').forEach(function(d) { d.classList.remove('current'); });
+    document.querySelector('.qcard[data-q="' + idx + '"]').classList.add('active');
+    document.querySelector('.qnav-dot[data-q="' + idx + '"]').classList.add('current');
+    currentQ = idx;
+    document.getElementById('current-num').textContent = idx + 1;
+    updateNavButtons();
+  }
+
+  function nextQuestion() {
+    if (currentQ < totalQs - 1) goToQuestion(currentQ + 1);
+  }
+
+  function prevQuestion() {
+    if (currentQ > 0) goToQuestion(currentQ - 1);
+  }
+
+  function updateNavButtons() {
+    // Show/hide submit button on last question
+    var answeredCount = Object.keys(answered).length;
+    var nextBtn = document.getElementById('nextBtn');
+    var submitBtn = document.getElementById('submitBtn');
+
+    if (answeredCount >= totalQs) {
+      nextBtn.style.display = 'none';
+      submitBtn.style.display = 'inline-flex';
+    } else if (answered[currentQ] !== undefined) {
+      nextBtn.style.display = currentQ < totalQs - 1 ? 'inline-flex' : 'none';
+      submitBtn.style.display = currentQ >= totalQs - 1 ? 'inline-flex' : 'none';
+    } else {
+      nextBtn.style.display = 'none';
+      submitBtn.style.display = 'none';
+    }
+
+    // Hide next/submit buttons if current question not answered yet
+    if (answered[currentQ] === undefined) {
+      nextBtn.style.display = 'none';
+      submitBtn.style.display = 'none';
+    }
+  }
+
+  function pickOption(el, qIdx) {
+    // If already answered this question, ignore
+    if (answered[qIdx] !== undefined) return;
+
+    var card = document.querySelector('.qcard[data-q="' + qIdx + '"]');
+    var correctAnswer = card.dataset.answer;
+    var explanation = card.dataset.explanation;
+    var pickedKey = el.dataset.key;
+
+    // Disable all options in this question
+    var opts = card.querySelectorAll('.option');
+    opts.forEach(function(o) { o.classList.add('disabled'); });
+
+    // Check answer
+    var isCorrect = pickedKey === correctAnswer;
+
+    // Mark correct option
+    opts.forEach(function(o) {
+      if (o.dataset.key === correctAnswer) {
+        o.classList.add('correct');
+        o.querySelector('.opt-mark').textContent = '✓';
+      }
+    });
+
+    // Mark picked option if wrong
+    if (!isCorrect) {
+      el.classList.add('wrong');
+      el.querySelector('.opt-mark').textContent = '✗';
+    }
+
+    // Update nav dot
+    var dot = document.querySelector('.qnav-dot[data-q="' + qIdx + '"]');
+    dot.className = 'qnav-dot ' + (isCorrect ? 'dot-correct' : 'dot-wrong');
+
+    // Show feedback box
+    var fb = document.getElementById('fb-' + qIdx);
+    fb.className = 'fb-box show ' + (isCorrect ? 'correct' : 'wrong');
+    fb.querySelector('.fb-icon').textContent = isCorrect ? '✓' : '✗';
+    fb.querySelector('.fb-title').textContent = isCorrect ? '正確！' : '答錯了';
+
+    if (!isCorrect && explanation) {
+      var expDiv = fb.querySelector('.fb-explain');
+      expDiv.textContent = explanation;
+      expDiv.style.display = 'block';
+    } else if (!isCorrect) {
+      var expDiv = fb.querySelector('.fb-explain');
+      expDiv.textContent = '正確答案是 ' + correctAnswer;
+      expDiv.style.display = 'block';
+    }
+
+    // Record answer
+    answered[qIdx] = pickedKey;
+
+    // Update hidden input
+    var qId = card.dataset.id;
+    document.getElementById('input_' + qId).value = pickedKey;
+
+    // Update progress
+    var answeredCount = Object.keys(answered).length;
+    document.getElementById('answered-count').textContent = '已答 ' + answeredCount + ' / ' + totalQs + ' 題';
+    document.getElementById('progress-fill').style.width = (answeredCount / totalQs * 100) + '%';
+
+    // Show next/submit button
+    updateNavButtons();
+  }
+
+  function submitQuiz() {
+    document.getElementById('timer').textContent = '⏱ 作答完畢...';
+    document.getElementById('quizForm').submit();
+  }
+</script>
+
+</body>
+</html>

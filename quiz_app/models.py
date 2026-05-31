@@ -48,6 +48,15 @@ class Question(models.Model):
         verbose_name='連貫題組別',
         help_text='同一組別的題目會保持順序'
     )
+    is_new = models.BooleanField(default=False, verbose_name='自編題目')
+    source_note = models.CharField(
+        max_length=200, blank=True, verbose_name='題目來源',
+        help_text='若為自編題目，請註明來源或設計說明'
+    )
+    explanation = models.TextField(
+        blank=True, verbose_name='題目詳解',
+        help_text='作答後顯示的詳細解析，說明為什麼正確答案是對的'
+    )
 
     class Meta:
         verbose_name = '題目'
@@ -66,6 +75,7 @@ class QuizRecord(models.Model):
     correct_count = models.IntegerField(verbose_name='答對題數')
     score = models.FloatField(verbose_name='分數')
     time_spent = models.IntegerField(verbose_name='耗時(秒)', default=0)
+    is_sr = models.BooleanField(default=False, verbose_name='間隔學習法')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='作答時間')
 
     class Meta:
