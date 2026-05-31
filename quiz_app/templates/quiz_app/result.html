@@ -25,7 +25,7 @@
       </nav>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
       </div>
@@ -134,5 +134,148 @@
   </footer>
 
 </div>
+
+<!-- ═══ Profile Modal ═══ -->
+<div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 個人資料</h3>
+      <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="profile-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">目前密碼</label>
+        <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼</label>
+        <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+        <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
+        <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeProfileModal()">關閉</button>
+      <button class="btn btn-primary" onclick="saveProfile()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Profile Modal ── */
+var profileData = {
+  nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+};
+
+function openProfileModal() {
+  document.getElementById('profile-nickname').value = profileData.nickname || '';
+  document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-delete-confirm').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function saveProfile() {
+  var btn = document.querySelector('#profileModal .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('nickname', document.getElementById('profile-nickname').value);
+  formData.append('email', document.getElementById('profile-email').value);
+  var oldPw = document.getElementById('profile-old-pw').value;
+  var newPw = document.getElementById('profile-new-pw').value;
+
+  fetch('/api/profile/update/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp.success) {
+        alert('儲存失敗：' + (resp.error || ''));
+        btn.textContent = '儲存';
+        btn.disabled = false;
+        return;
+      }
+      if (oldPw && newPw) {
+        var pwData = new FormData();
+        pwData.append('old_password', oldPw);
+        pwData.append('new_password', newPw);
+        return fetch('/api/profile/change-password/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCSRFToken() },
+          body: pwData,
+        }).then(function(r) { return r.json(); }).then(function(pwResp) {
+          if (!pwResp.success) { alert('密碼修改失敗：' + (pwResp.error || '')); }
+          else { alert('個人資料與密碼已更新！'); }
+        });
+      } else {
+        alert('個人資料已更新！');
+      }
+    })
+    .catch(function(err) { alert('錯誤：' + err); })
+    .then(function() {
+      closeProfileModal();
+      location.reload();
+    });
+}
+
+function deleteMyAccount() {
+  var confirmText = document.getElementById('profile-delete-confirm').value.trim();
+  if (confirmText !== 'DELETE') { alert('請輸入 DELETE 確認刪除帳號'); return; }
+  if (!confirm('確定要永久刪除你的帳號嗎？此操作無法還原！')) return;
+  var formData = new FormData();
+  formData.append('confirm', 'DELETE');
+  fetch('/api/profile/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) { window.location.href = '/'; }
+      else { alert('刪除失敗：' + (resp.error || '')); }
+    });
+}
+
+/* ── CSRF Token ── */
+function getCSRFToken() {
+  var name = 'csrftoken';
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1);
+  }
+  return '';
+}
+</script>
+
+
 </body>
 </html>

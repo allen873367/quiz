@@ -25,7 +25,7 @@
       </nav>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% else %}
           <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
@@ -37,92 +37,72 @@
   <main>
     <div class="container">
 
-      <!-- Breadcrumb -->
-      <div class="mono" style="color:var(--text-dim);font-size:13px;margin-bottom:24px;">
-        <a href="{% url 'home' %}">~/home</a>
-        <span> / </span>
-        <span class="indigo">{{ chapter_slug }}</span>
-      </div>
-
-      <!-- Panel -->
+      <!-- 主卡片 -->
       <div class="panel">
         <div class="panel-header">
           <span><span class="dim">📖</span> {{ chapter }}</span>
           <span class="tag tag-indigo">主題測驗</span>
         </div>
         <div class="panel-body">
-          <div style="display:grid;grid-template-columns:1fr auto;gap:32px;align-items:start;">
-            <div>
-              <h1 style="font-size:44px;margin:0 0 16px;letter-spacing:-0.02em;line-height:1.1;">
-                {{ chapter }}
-              </h1>
-              {% if chapter_description %}
-              <p style="color:var(--text-muted);max-width:560px;margin-bottom:8px;font-size:15px;">
-                {{ chapter_description }}
-              </p>
-              {% endif %}
-
-              <!-- Settings panel -->
-              <div class="settings-panel">
-                <div class="panel-label">測驗設定</div>
-
-                <!-- Question count -->
-                <div class="settings-row">
-                  <span class="settings-label">題數</span>
-                  <div class="seg" id="seg-count">
-                    <button data-count="5" onclick="setCount(5)">5 題</button>
-                    <button data-count="10" onclick="setCount(10)">10 題</button>
-                    <button data-count="{{ total }}" onclick="setCount({{ total }})" class="active">全部 ({{ total }})</button>
-                  </div>
-                  <span class="settings-help" id="time-hint">約 {{ estimated_minutes }} 分鐘</span>
-                </div>
-
-                <!-- Spaced repetition -->
-                <div class="settings-row">
-                  <span class="settings-label">間隔學習</span>
-                  <div class="toggle on" id="toggle-sr" onclick="toggleSr()" role="switch" aria-checked="true">
-                    <span class="toggle-track"></span>
-                    <span class="toggle-label" id="sr-label">已開啟</span>
-                  </div>
-                  <span class="settings-help">答錯的題目會反覆出現直到你答對為止</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- History sidebar -->
-            <div style="width:220px;">
-              <div class="panel-label">統計</div>
-              <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-                <div style="padding:12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);text-align:center;">
-                  <div class="mono" style="font-size:24px;margin-bottom:4px;">{{ total }}</div>
-                  <div style="font-size:12px;color:var(--text-muted);">總題數</div>
-                </div>
-              </div>
-              {% if user.is_authenticated and recent_record %}
-              <div style="margin-top:12px;">
-                <div class="mono" style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
-                  最近分數
-                </div>
-                <div style="padding:12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);">
-                  <div class="mono" style="font-size:18px;margin-bottom:4px;">{{ recent_record.score|floatformat:0 }}<span style="font-size:12px;color:var(--text-dim);">分</span></div>
-                  <div style="font-size:11px;color:var(--text-muted);">
-                    {{ recent_record.created_at|date:"m/d H:i" }}
-                  </div>
-                </div>
-              </div>
-              {% endif %}
-            </div>
+          <div style="margin-bottom:28px;">
+            <h1 style="font-size:36px;margin:0 0 12px;letter-spacing:-0.02em;line-height:1.2;">
+              {{ chapter }}
+            </h1>
+            {% if chapter_description %}
+            <p style="color:var(--text-muted);margin:0;font-size:15px;line-height:1.7;">
+              {{ chapter_description }}
+            </p>
+            {% endif %}
           </div>
-        </div>
-      </div>
 
-      <!-- Action button -->
-      <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
-        <a class="btn btn-primary btn-lg" id="btn-start"
-           href="{% url 'take_quiz' chapter %}?count={{ total }}&sr=1">
-          🚀 開始作答 · {{ total }} 題 · 間隔學習
-        </a>
-        <a class="btn btn-lg" href="{% url 'home' %}">← 回首頁</a>
+          <!-- 設定列：題數 + 間隔學習 + 開始按鈕 -->
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;padding:20px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);">
+
+            <!-- 題數 -->
+            <div>
+              <div class="panel-label" style="margin-bottom:8px;">題數</div>
+              <div class="seg" id="seg-count">
+                <button data-count="5" onclick="setCount(5)">5 題</button>
+                <button data-count="10" onclick="setCount(10)">10 題</button>
+                <button data-count="15" onclick="setCount(15)">15 題</button>
+                <button data-count="20" onclick="setCount(20)">20 題</button>
+                <button data-count="{{ total }}" onclick="setCount({{ total }})" class="active">全部 ({{ total }})</button>
+              </div>
+              <span class="settings-help" id="time-hint" style="margin-top:6px;"></span>
+            </div>
+
+            <!-- 間隔學習 -->
+            <div>
+              <div class="panel-label" style="margin-bottom:8px;">間隔學習</div>
+              <div class="toggle on" id="toggle-sr" onclick="toggleSr()" role="switch" aria-checked="true">
+                <span class="toggle-track"></span>
+                <span class="toggle-label" id="sr-label">已開啟</span>
+              </div>
+              </div>
+
+            <!-- 右側按鈕 -->
+            <div style="margin-left:auto;display:flex;gap:10px;align-items:flex-end;">
+              <a class="btn btn-lg" href="{% url 'home' %}" style="white-space:nowrap;">← 回首頁</a>
+              <a class="btn btn-primary btn-lg" id="btn-start"
+                 href="{% url 'take_quiz' chapter %}?count={{ total }}&sr=1"
+                 style="white-space:nowrap;">
+                🚀 開始作答
+              </a>
+            </div>
+
+          </div>
+
+          <!-- 底部資訊列 -->
+          <div style="display:flex;gap:24px;margin-top:16px;font-size:13px;color:var(--text-muted);">
+            <span>題庫總數：<strong>{{ total }}</strong></span>
+            <span>將作答：<strong id="selected-count">{{ total }} 題</strong></span>
+            {% if user.is_authenticated and recent_record %}
+            <span>最近分數：<strong>{{ recent_record.score|floatformat:0 }} 分</strong></span>
+            <span style="font-size:11px;">（{{ recent_record.created_at|date:"m/d H:i" }}）</span>
+            {% endif %}
+          </div>
+
+        </div>
       </div>
 
     </div>
@@ -149,6 +129,7 @@
     });
     var mins = Math.max(3, Math.ceil(n * 1));
     document.getElementById('time-hint').textContent = '約 ' + mins + ' 分鐘';
+    document.getElementById('selected-count').textContent = n + ' 題';
     updateStartLink();
   };
 
@@ -163,14 +144,154 @@
 
   function updateStartLink() {
     var link = document.getElementById('btn-start');
-    var base = link.href.split('?')[0];
+    var base = '{% url 'take_quiz' chapter %}';
     link.href = base + '?count=' + count + '&sr=' + (sr ? '1' : '0');
-    var label = '🚀 開始作答 · ' + count + ' 題';
-    if (sr) label += ' · 間隔學習';
-    link.textContent = label;
   }
 }());
 </script>
+
+
+<!-- ═══ Profile Modal ═══ -->
+<div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 個人資料</h3>
+      <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="profile-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">目前密碼</label>
+        <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼</label>
+        <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+        <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
+        <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeProfileModal()">關閉</button>
+      <button class="btn btn-primary" onclick="saveProfile()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Profile Modal ── */
+var profileData = {
+  nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+};
+
+function openProfileModal() {
+  document.getElementById('profile-nickname').value = profileData.nickname || '';
+  document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-delete-confirm').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function saveProfile() {
+  var btn = document.querySelector('#profileModal .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('nickname', document.getElementById('profile-nickname').value);
+  formData.append('email', document.getElementById('profile-email').value);
+  var oldPw = document.getElementById('profile-old-pw').value;
+  var newPw = document.getElementById('profile-new-pw').value;
+
+  fetch('/api/profile/update/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp.success) {
+        alert('儲存失敗：' + (resp.error || ''));
+        btn.textContent = '儲存';
+        btn.disabled = false;
+        return;
+      }
+      if (oldPw && newPw) {
+        var pwData = new FormData();
+        pwData.append('old_password', oldPw);
+        pwData.append('new_password', newPw);
+        return fetch('/api/profile/change-password/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCSRFToken() },
+          body: pwData,
+        }).then(function(r) { return r.json(); }).then(function(pwResp) {
+          if (!pwResp.success) { alert('密碼修改失敗：' + (pwResp.error || '')); }
+          else { alert('個人資料與密碼已更新！'); }
+        });
+      } else {
+        alert('個人資料已更新！');
+      }
+    })
+    .catch(function(err) { alert('錯誤：' + err); })
+    .then(function() {
+      closeProfileModal();
+      location.reload();
+    });
+}
+
+function deleteMyAccount() {
+  var confirmText = document.getElementById('profile-delete-confirm').value.trim();
+  if (confirmText !== 'DELETE') { alert('請輸入 DELETE 確認刪除帳號'); return; }
+  if (!confirm('確定要永久刪除你的帳號嗎？此操作無法還原！')) return;
+  var formData = new FormData();
+  formData.append('confirm', 'DELETE');
+  fetch('/api/profile/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) { window.location.href = '/'; }
+      else { alert('刪除失敗：' + (resp.error || '')); }
+    });
+}
+
+/* ── CSRF Token ── */
+function getCSRFToken() {
+  var name = 'csrftoken';
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1);
+  }
+  return '';
+}
+</script>
+
 
 </body>
 </html>

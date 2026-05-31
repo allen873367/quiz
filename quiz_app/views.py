@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -424,6 +425,7 @@ def review_wrong(request, wrong_id):
 def admin_panel(request):
     """自訂管理後台"""
     if not request.user.is_authenticated or not request.user.is_staff:
+        messages.error(request, '你不是管理員')
         return redirect('home')
 
     raw_chapters = list(Question.objects.values_list('chapter', flat=True))
@@ -624,7 +626,7 @@ def api_create_question(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def api_update_user(request, uid):
-    """更新用戶資訊"""
+    """更新用戶資訊（Admin）"""
     if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'error': '未授權'}, status=403)
 
@@ -632,11 +634,44 @@ def api_update_user(request, uid):
         user = User.objects.get(id=uid)
         data = request.POST.dict()
         user.nickname = data.get('nickname', user.nickname)
+        user.email = data.get('email', user.email)
         user.is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+        if data.get('password'):
+            user.set_password(data.get('password'))
         user.save()
         return JsonResponse({'success': True})
     except User.DoesNotExist:
         return JsonResponse({'error': '用戶不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_create_user(request):
+    """建立新用戶"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        import json as _json
+        data = request.POST.dict() if request.POST else _json.loads(request.body or '{}')
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        email = data.get('email', '').strip()
+        is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+
+        if not username:
+            return JsonResponse({'error': '帳號不能為空'}, status=400)
+        if not password:
+            return JsonResponse({'error': '密碼不能為空'}, status=400)
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({'error': '帳號已存在'}, status=400)
+
+        user = User.objects.create_user(username=username, password=password, email=email)
+        user.is_staff = is_staff
+        user.save()
+        return JsonResponse({'success': True, 'id': user.id})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
@@ -673,5 +708,109 @@ def api_delete_record(request, rid):
         return JsonResponse({'success': True})
     except QuizRecord.DoesNotExist:
         return JsonResponse({'error': '記錄不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_batch_delete(request):
+    """批次刪除題目 / 用戶 / 記錄"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        data = json.loads(request.body or '{}')
+        delete_type = data.get('type', '')
+        ids = data.get('ids', [])
+
+        if not isinstance(ids, list) or not ids:
+            return JsonResponse({'error': '請選擇至少一個項目'}, status=400)
+
+        if delete_type == 'question':
+            Question.objects.filter(id__in=ids).delete()
+        elif delete_type == 'user':
+            # 不能刪除自己
+            my_id = request.user.id
+            safe_ids = [i for i in ids if i != my_id]
+            if not safe_ids:
+                return JsonResponse({'error': '不能刪除自己的帳號'}, status=400)
+            User.objects.filter(id__in=safe_ids).delete()
+        elif delete_type == 'record':
+            QuizRecord.objects.filter(id__in=ids).delete()
+        else:
+            return JsonResponse({'error': '未知類型'}, status=400)
+
+        return JsonResponse({'success': True, 'deleted': len(ids)})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_update_profile(request):
+    """使用者自行更新個人資料（暱稱、Email）"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    try:
+        data = request.POST.dict()
+        if 'nickname' in data:
+            request.user.nickname = data['nickname']
+        if 'email' in data:
+            request.user.email = data['email']
+        request.user.save()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_change_password(request):
+    """使用者自行更改密碼"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    try:
+        import json as _json
+        data = request.POST.dict() if request.POST else _json.loads(request.body or '{}')
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+
+        if not old_password or not new_password:
+            return JsonResponse({'error': '請填入舊密碼與新密碼'}, status=400)
+        if len(new_password) < 3:
+            return JsonResponse({'error': '新密碼至少 3 個字元'}, status=400)
+        if not request.user.check_password(old_password):
+            return JsonResponse({'error': '舊密碼錯誤'}, status=400)
+
+        request.user.set_password(new_password)
+        request.user.save()
+        from django.contrib.auth import update_session_auth_hash
+        update_session_auth_hash(request, request.user)
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_delete_account(request):
+    """使用者自行刪除自己的帳號"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    try:
+        data = request.POST.dict() if request.POST else {}
+        confirm = data.get('confirm', '')
+        if confirm != 'DELETE':
+            return JsonResponse({'error': '請輸入 DELETE 確認刪除'}, status=400)
+
+        user = request.user
+        from django.contrib.auth import logout
+        logout(request)
+        user.delete()
+        return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)

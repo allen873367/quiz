@@ -24,6 +24,48 @@
     .fb-explain { color: var(--text-muted); font-size: 13px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--glass-border); }
     .option.disabled { pointer-events: none; opacity: 0.6; }
     .option.disabled.selected { opacity: 1; }
+
+    /* 左側題號卡片 */
+    .qnav-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: sticky;
+      top: 100px;
+    }
+    .qnav-card .panel-label { margin-bottom: 12px; }
+    .qnav-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .qnav-dot {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: var(--radius);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-color);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .qnav-dot:hover { background: var(--glass-hover); border-color: var(--indigo-border); }
+    .qnav-dot.current { border-color: var(--indigo); background: var(--indigo-soft); color: var(--indigo); }
+    .qnav-dot.dot-correct { border-color: var(--emerald); background: var(--emerald-soft); color: var(--emerald); }
+    .qnav-dot.dot-wrong { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); }
+
+    /* 進度條 */
+    .quiz-progress { margin-bottom: 20px; }
+    .quiz-progress .progress-bar { height: 6px; }
+
+    /* 題目卡片縮小 */
+    .qcard-wrap { max-width: 680px; }
+    .qcard .qstem { font-size: 16px; line-height: 1.7; margin-bottom: 20px; }
+    .option { padding: 10px 14px; }
   </style>
 </head>
 <body>
@@ -44,7 +86,7 @@
       </nav>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
         <span class="dim" id="sr-tag" style="display:none;">🔄 SR</span>
@@ -55,82 +97,127 @@
   <main>
     <div class="container">
 
-      <div class="quiz-top">
-        <span><span class="dim">{{ chapter }}</span> / <span id="current-num">1</span><span class="dim"> / {{ quiz_data|length }} 題</span></span>
-        <span class="mono dim">⏱ <span id="timer">00:00</span></span>
+      <!-- 頂端資訊列 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="mono" style="color:var(--text-dim);font-size:13px;">
+          <span class="dim">{{ chapter }}</span>
+          <span> / </span>
+          <span id="current-num">1</span><span class="dim"> / {{ quiz_data|length }} 題</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          {% if sr_round %}
+          <div class="notice" style="margin:0;padding:6px 12px;font-size:12px;">
+            🔄 間隔學習第 {{ sr_round }} 輪
+          </div>
+          {% endif %}
+          <span class="mono dim">⏱ <span id="timer">00:00</span></span>
+          <span class="mono dim" id="answered-count">已答 0 / {{ quiz_data|length }}</span>
+        </div>
       </div>
 
-      {% if sr_round %}
-      <div class="notice" style="margin-bottom:16px;">
-        🔄 間隔學習第 {{ sr_round }} 輪 — 再次挑戰答錯的題目！
-      </div>
-      {% endif %}
-
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      <!-- 進度條 -->
+      <div class="quiz-progress">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
       </div>
 
-      <div class="qnav" id="qnav">
-        {% for item in quiz_data %}
-        <button class="qnav-dot {% if forloop.first %}current{% endif %}" data-q="{{ forloop.counter0 }}">
-          {{ forloop.counter }}
-        </button>
-        {% endfor %}
-      </div>
+      <!-- 雙欄佈局：左側題號卡 + 右側題目卡 -->
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
 
-      {% for item in quiz_data %}
-      <div class="qcard {% if forloop.first %}active{% endif %}" data-q="{{ forloop.counter0 }}"
-           data-id="{{ item.id }}" data-answer="{{ item.correct_answer }}" data-explanation="{{ item.explanation|default:''|escape }}">
-        <div class="qhead">
-          <span class="qnum">第 {{ forloop.counter }} 題 / {{ quiz_data|length }}</span>
-          <span class="mono dim">{{ item.difficulty|default:"medium" }}</span>
+        <!-- 左側：題號卡片 -->
+        <div class="qnav-card">
+          <div class="panel-label">📋 題目列表</div>
+          <div class="qnav-grid" id="qnav">
+            {% for item in quiz_data %}
+            <button class="qnav-dot {% if forloop.first %}current{% endif %}" data-q="{{ forloop.counter0 }}" onclick="goToQuestion({{ forloop.counter0 }})">
+              {{ forloop.counter }}
+            </button>
+            {% endfor %}
+          </div>
+
+          <!-- 圖例 -->
+          <div style="display:flex;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid var(--glass-border);font-size:11px;color:var(--text-muted);">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--emerald-soft);border:1px solid var(--emerald-border);"></span> 正確</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--rose-soft);border:1px solid var(--rose-border);"></span> 錯誤</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--glass-bg);border:1px solid var(--glass-border);"></span> 未答</span>
+          </div>
+
+          <!-- 統計 -->
+          <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--glass-border);">
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span class="dim">已答</span>
+              <span class="mono" id="qnav-answered">0 / {{ quiz_data|length }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+              <span class="dim">正確</span>
+              <span class="mono" id="qnav-correct" style="color:var(--emerald);">0</span>
+            </div>
+          </div>
         </div>
 
-        <div class="qstem">{{ item.question }}</div>
+        <!-- 右側：題目卡片 -->
+        <div class="qcard-wrap">
+          {% for item in quiz_data %}
+          <div class="panel qcard {% if forloop.first %}active{% endif %}" data-q="{{ forloop.counter0 }}"
+               data-id="{{ item.id }}" data-answer="{{ item.correct_answer }}" data-explanation="{{ item.explanation|default:''|escape }}">
+            <div class="panel-header">
+              <span><span class="dim">第 {{ forloop.counter }} 題 / {{ quiz_data|length }}</span></span>
+              <span class="mono dim" style="font-size:12px;">{{ item.difficulty|default:"medium" }}</span>
+            </div>
+            <div class="panel-body">
 
-        {% if item.question_image %}
-        <img src="{{ item.question_image }}" alt="題目圖片" class="qimg">
-        {% endif %}
+              <div class="qstem">{{ item.question }}</div>
 
-        <div class="options">
-          {% for option_key, option_text in item.options %}
-          <div class="option" data-key="{{ option_key }}" onclick="pickOption(this, {{ forloop.parentloop.counter0 }})">
-            <span class="opt-letter">{{ option_key }}</span>
-            <span class="opt-text">{{ option_text }}</span>
-            <span class="opt-mark"></span>
+              {% if item.question_image %}
+              <img src="{{ item.question_image }}" alt="題目圖片" class="qimg" style="max-width:100%;border-radius:var(--radius);margin-bottom:16px;">
+              {% endif %}
+
+              <div class="options">
+                {% for option_key, option_text in item.options %}
+                <div class="option" data-key="{{ option_key }}" onclick="pickOption(this, {{ forloop.parentloop.counter0 }})">
+                  <span class="opt-letter">{{ option_key }}</span>
+                  <span class="opt-text">{{ option_text }}</span>
+                  <span class="opt-mark"></span>
+                </div>
+                {% endfor %}
+              </div>
+
+              <div class="fb-box" id="fb-{{ forloop.counter0 }}">
+                <div class="fb-icon"></div>
+                <div class="fb-body">
+                  <div class="fb-title"></div>
+                  <div class="fb-explain" style="display:none;"></div>
+                </div>
+              </div>
+
+            </div>
           </div>
           {% endfor %}
-        </div>
 
-        <div class="fb-box" id="fb-{{ forloop.counter0 }}">
-          <div class="fb-icon"></div>
-          <div class="fb-body">
-            <div class="fb-title"></div>
-            <div class="fb-explain" style="display:none;"></div>
+          <!-- 底部按鈕 -->
+          <div class="quiz-footer">
+            <button class="btn" id="prevBtn" onclick="prevQuestion()" style="visibility:hidden;">← 上一題</button>
+            <div style="display:flex;gap:8px;margin-left:auto;">
+              <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">下一題 →</button>
+              <button class="btn btn-primary" id="submitBtn" onclick="submitQuiz()" style="display:none;">✅ 提交答案</button>
+              <button class="btn btn-ghost" id="earlySubmitBtn" onclick="earlySubmit()" style="color:var(--amber);border-color:var(--amber-border);">📤 交卷</button>
+            </div>
           </div>
         </div>
-      </div>
-      {% endfor %}
 
-      <div class="quiz-footer">
-        <button class="btn" id="prevBtn" onclick="prevQuestion()">← 上一題</button>
-        <span class="mono dim" id="answered-count">已答 0 / {{ quiz_data|length }} 題</span>
-        <div style="display:flex;gap:8px;">
-          <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">下一題 →</button>
-          <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitQuiz()" style="display:none;">✅ 提交答案</button>
-        </div>
       </div>
+
+      <form method="post" action="{% url 'submit_quiz' %}" id="quizForm" style="display:none;">
+        {% csrf_token %}
+        <input type="hidden" name="time_spent" id="timeSpent" value="0">
+        {% for item in quiz_data %}
+        <input type="hidden" name="question_{{ item.id }}" id="input_{{ item.id }}" value="">
+        {% endfor %}
+      </form>
 
     </div>
   </main>
-
-  <form method="post" action="{% url 'submit_quiz' %}" id="quizForm" style="display:none;">
-    {% csrf_token %}
-    <input type="hidden" name="time_spent" id="timeSpent" value="0">
-    {% for item in quiz_data %}
-    <input type="hidden" name="question_{{ item.id }}" id="input_{{ item.id }}" value="">
-    {% endfor %}
-  </form>
 
   <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
     <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
@@ -145,6 +232,7 @@
   var totalQs = {{ quiz_data|length }};
   var currentQ = 0;
   var answered = {};
+  var correctCount = 0;
   var seconds = 0;
   var timerInterval;
 
@@ -181,31 +269,30 @@
   }
 
   function updateNavButtons() {
-    // Show/hide submit button on last question
     var answeredCount = Object.keys(answered).length;
     var nextBtn = document.getElementById('nextBtn');
     var submitBtn = document.getElementById('submitBtn');
+    var prevBtn = document.getElementById('prevBtn');
+
+    // 上一題按鈕可見性
+    prevBtn.style.visibility = currentQ > 0 ? 'visible' : 'hidden';
 
     if (answeredCount >= totalQs) {
+      // 全部答完：顯示提交按鈕
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'inline-flex';
     } else if (answered[currentQ] !== undefined) {
+      // 當前已答：顯示下一題或提交
       nextBtn.style.display = currentQ < totalQs - 1 ? 'inline-flex' : 'none';
       submitBtn.style.display = currentQ >= totalQs - 1 ? 'inline-flex' : 'none';
     } else {
-      nextBtn.style.display = 'none';
-      submitBtn.style.display = 'none';
-    }
-
-    // Hide next/submit buttons if current question not answered yet
-    if (answered[currentQ] === undefined) {
+      // 當前未答：隱藏下一題和提交
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'none';
     }
   }
 
   function pickOption(el, qIdx) {
-    // If already answered this question, ignore
     if (answered[qIdx] !== undefined) return;
 
     var card = document.querySelector('.qcard[data-q="' + qIdx + '"]');
@@ -213,14 +300,11 @@
     var explanation = card.dataset.explanation;
     var pickedKey = el.dataset.key;
 
-    // Disable all options in this question
     var opts = card.querySelectorAll('.option');
     opts.forEach(function(o) { o.classList.add('disabled'); });
 
-    // Check answer
     var isCorrect = pickedKey === correctAnswer;
 
-    // Mark correct option
     opts.forEach(function(o) {
       if (o.dataset.key === correctAnswer) {
         o.classList.add('correct');
@@ -228,17 +312,16 @@
       }
     });
 
-    // Mark picked option if wrong
     if (!isCorrect) {
       el.classList.add('wrong');
       el.querySelector('.opt-mark').textContent = '✗';
+    } else {
+      correctCount++;
     }
 
-    // Update nav dot
     var dot = document.querySelector('.qnav-dot[data-q="' + qIdx + '"]');
     dot.className = 'qnav-dot ' + (isCorrect ? 'dot-correct' : 'dot-wrong');
 
-    // Show feedback box
     var fb = document.getElementById('fb-' + qIdx);
     fb.className = 'fb-box show ' + (isCorrect ? 'correct' : 'wrong');
     fb.querySelector('.fb-icon').textContent = isCorrect ? '✓' : '✗';
@@ -254,19 +337,17 @@
       expDiv.style.display = 'block';
     }
 
-    // Record answer
     answered[qIdx] = pickedKey;
 
-    // Update hidden input
     var qId = card.dataset.id;
     document.getElementById('input_' + qId).value = pickedKey;
 
-    // Update progress
     var answeredCount = Object.keys(answered).length;
     document.getElementById('answered-count').textContent = '已答 ' + answeredCount + ' / ' + totalQs + ' 題';
     document.getElementById('progress-fill').style.width = (answeredCount / totalQs * 100) + '%';
+    document.getElementById('qnav-answered').textContent = answeredCount + ' / ' + totalQs;
+    document.getElementById('qnav-correct').textContent = correctCount;
 
-    // Show next/submit button
     updateNavButtons();
   }
 
@@ -274,7 +355,159 @@
     document.getElementById('timer').textContent = '⏱ 作答完畢...';
     document.getElementById('quizForm').submit();
   }
+
+  function earlySubmit() {
+    var answeredCount = Object.keys(answered).length;
+    if (answeredCount < totalQs) {
+      alert('你的題目還沒做完！已答 ' + answeredCount + ' / ' + totalQs + ' 題');
+      return;
+    }
+    submitQuiz();
+  }
 </script>
+
+
+<!-- ═══ Profile Modal ═══ -->
+<div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 個人資料</h3>
+      <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="profile-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">目前密碼</label>
+        <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼</label>
+        <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+        <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
+        <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeProfileModal()">關閉</button>
+      <button class="btn btn-primary" onclick="saveProfile()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Profile Modal ── */
+var profileData = {
+  nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+};
+
+function openProfileModal() {
+  document.getElementById('profile-nickname').value = profileData.nickname || '';
+  document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-delete-confirm').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function saveProfile() {
+  var btn = document.querySelector('#profileModal .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('nickname', document.getElementById('profile-nickname').value);
+  formData.append('email', document.getElementById('profile-email').value);
+  var oldPw = document.getElementById('profile-old-pw').value;
+  var newPw = document.getElementById('profile-new-pw').value;
+
+  fetch('/api/profile/update/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp.success) {
+        alert('儲存失敗：' + (resp.error || ''));
+        btn.textContent = '儲存';
+        btn.disabled = false;
+        return;
+      }
+      if (oldPw && newPw) {
+        var pwData = new FormData();
+        pwData.append('old_password', oldPw);
+        pwData.append('new_password', newPw);
+        return fetch('/api/profile/change-password/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCSRFToken() },
+          body: pwData,
+        }).then(function(r) { return r.json(); }).then(function(pwResp) {
+          if (!pwResp.success) { alert('密碼修改失敗：' + (pwResp.error || '')); }
+          else { alert('個人資料與密碼已更新！'); }
+        });
+      } else {
+        alert('個人資料已更新！');
+      }
+    })
+    .catch(function(err) { alert('錯誤：' + err); })
+    .then(function() {
+      closeProfileModal();
+      location.reload();
+    });
+}
+
+function deleteMyAccount() {
+  var confirmText = document.getElementById('profile-delete-confirm').value.trim();
+  if (confirmText !== 'DELETE') { alert('請輸入 DELETE 確認刪除帳號'); return; }
+  if (!confirm('確定要永久刪除你的帳號嗎？此操作無法還原！')) return;
+  var formData = new FormData();
+  formData.append('confirm', 'DELETE');
+  fetch('/api/profile/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) { window.location.href = '/'; }
+      else { alert('刪除失敗：' + (resp.error || '')); }
+    });
+}
+
+/* ── CSRF Token ── */
+function getCSRFToken() {
+  var name = 'csrftoken';
+  var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) {
+    var c = cookies[i].trim();
+    if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1);
+  }
+  return '';
+}
+</script>
+
 
 </body>
 </html>

@@ -26,7 +26,7 @@
       </nav>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
       </div>
@@ -96,6 +96,7 @@
               </div>
             </div>
             <div class="admin-toolbar-right">
+              <button class="btn btn-sm btn-ghost" onclick="batchDelete('question')" style="color:var(--rose);border-color:var(--rose-border);" id="q-batch-del" disabled>🗑️ 刪除選取</button>
               <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新增題目</button>
             </div>
           </div>
@@ -104,12 +105,13 @@
             <table class="admin-table" id="question-table">
               <thead>
                 <tr>
+                  <th style="width:32px;"><input type="checkbox" onchange="toggleAll('q',this.checked)" title="全選"></th>
                   <th style="width:40px;">#</th>
                   <th style="width:70px;">章節</th>
                   <th>題目</th>
                   <th style="width:50px;">正解</th>
                   <th style="width:60px;">難易度</th>
-                  <th style="width:50px;">圖片</th>
+                  <th style="width:60px;">圖片</th>
                   <th style="width:60px;">來源</th>
                   <th style="width:80px;">操作</th>
                 </tr>
@@ -117,6 +119,7 @@
               <tbody>
                 {% for q in questions %}
                 <tr class="q-row" data-chapter="{{ q.chapter }}" data-source="{% if q.is_new %}new{% else %}teacher{% endif %}" data-search="{{ q.text|lower }}" onclick="openEditModal({{ q.id }})" style="cursor:pointer;">
+                  <td style="width:32px;text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="q-cb" value="{{ q.id }}" onchange="updateBatchBtn('q')"></td>
                   <td class="dim">{{ q.number }}</td>
                   <td><span class="tag tag-sm tag-indigo">{{ q.chapter|slice:"4:" }}</span></td>
                   <td class="q-text">{{ q.text }}</td>
@@ -152,11 +155,15 @@
             <div class="admin-toolbar-left">
               <h3 class="section-title" style="margin:0;">📊 近期測驗紀錄</h3>
             </div>
+            <div class="admin-toolbar-right">
+              <button class="btn btn-sm btn-ghost" onclick="batchDelete('record')" style="color:var(--rose);border-color:var(--rose-border);" id="r-batch-del" disabled>🗑️ 刪除選取</button>
+            </div>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
               <thead>
                 <tr>
+                  <th style="width:32px;"><input type="checkbox" onchange="toggleAll('r',this.checked)" title="全選"></th>
                   <th>用戶</th>
                   <th>章節</th>
                   <th>分數</th>
@@ -170,6 +177,7 @@
               <tbody>
                 {% for r in records %}
                 <tr>
+                  <td style="width:32px;text-align:center;"><input type="checkbox" class="r-cb" value="{{ r.id }}" onchange="updateBatchBtn('r')"></td>
                   <td>{{ r.user }}</td>
                   <td>{{ r.chapter|truncatechars:12 }}</td>
                   <td><span class="tag tag-sm {% if r.score >= 80 %}tag-green{% elif r.score >= 60 %}tag-amber{% else %}tag-red{% endif %}">{{ r.score }}</span></td>
@@ -193,11 +201,16 @@
             <div class="admin-toolbar-left">
               <h3 class="section-title" style="margin:0;">👥 用戶列表</h3>
             </div>
+            <div class="admin-toolbar-right">
+              <button class="btn btn-sm btn-ghost" onclick="batchDelete('user')" style="color:var(--rose);border-color:var(--rose-border);" id="u-batch-del" disabled>🗑️ 刪除選取</button>
+              <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">＋ 新增用戶</button>
+            </div>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
               <thead>
                 <tr>
+                  <th style="width:32px;"><input type="checkbox" onchange="toggleAll('u',this.checked)" title="全選"></th>
                   <th>用戶名</th>
                   <th>暱稱</th>
                   <th>Email</th>
@@ -208,12 +221,13 @@
               <tbody>
                 {% for u in users %}
                 <tr>
+                  <td style="width:32px;text-align:center;"><input type="checkbox" class="u-cb" value="{{ u.id }}" onchange="updateBatchBtn('u')"></td>
                   <td>{{ u.username }}</td>
                   <td>{{ u.nickname|default:"—" }}</td>
                   <td class="dim">{{ u.email|default:"—" }}</td>
                   <td>{% if u.is_staff %}<span class="tag tag-sm tag-indigo">管理員</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>
                   <td style="display:flex;gap:4px;">
-                    <button class="btn btn-sm btn-ghost" onclick="openUserEdit({{ u.id }},'{{ u.username|escapejs }}','{{ u.nickname|escapejs }}',{{ u.is_staff|lower }})" style="padding:2px 10px;font-size:11px;">編輯</button>
+                    <button class="btn btn-sm btn-ghost" onclick="openUserEdit({{ u.id }},'{{ u.username|escapejs }}','{{ u.nickname|escapejs }}','{{ u.email|escapejs }}',{{ u.is_staff|lower }})" style="padding:2px 10px;font-size:11px;">編輯</button>
                     <button class="btn btn-sm btn-ghost" onclick="deleteUser({{ u.id }},'{{ u.username|escapejs }}')" style="padding:2px 10px;font-size:11px;color:var(--rose);">刪除</button>
                   </td>
                 </tr>
@@ -342,6 +356,74 @@
       <button class="btn btn-ghost" id="modal-delete-btn" style="color:var(--rose);border-color:var(--rose-border);display:none;margin-right:auto;" onclick="deleteQuestion()">🗑️ 刪除此題目</button>
       <button class="btn" onclick="closeEditModal()">取消</button>
       <button class="btn btn-primary" onclick="saveQuestion()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ User Edit Modal ═══ -->
+<div class="modal-overlay" id="userEditModal" style="display:none;" onclick="if(event.target===this)closeUserEditModal()">
+  <div class="modal-content" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="margin:0;" id="user-edit-title">👤 編輯用戶</h3>
+      <button class="modal-close" onclick="closeUserEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">用戶名</label>
+        <input class="input" id="user-edit-username" disabled style="opacity:0.6;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="user-edit-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="user-edit-email" type="email" placeholder="example@mail.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼（留空不變）</label>
+        <input class="input" id="user-edit-password" type="password" placeholder="留空則不修改密碼">
+      </div>
+      <div class="form-group" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
+        <input type="checkbox" id="user-edit-staff" style="width:18px;height:18px;accent-color:var(--indigo);">
+        <label for="user-edit-staff" style="font-size:14px;cursor:pointer;">管理員權限</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeUserEditModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveUserEdit()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ User Add Modal ═══ -->
+<div class="modal-overlay" id="userAddModal" style="display:none;" onclick="if(event.target===this)closeUserAddModal()">
+  <div class="modal-content" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 新增用戶</h3>
+      <button class="modal-close" onclick="closeUserAddModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">帳號 <span style="color:var(--rose);">*</span></label>
+        <input class="input" id="user-add-username" placeholder="使用者名稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">密碼 <span style="color:var(--rose);">*</span></label>
+        <input class="input" id="user-add-password" type="password" placeholder="密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="user-add-email" type="email" placeholder="example@mail.com">
+      </div>
+      <div class="form-group" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
+        <input type="checkbox" id="user-add-staff" style="width:18px;height:18px;accent-color:var(--indigo);">
+        <label for="user-add-staff" style="font-size:14px;cursor:pointer;">管理員權限</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeUserAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveNewUser()">💾 建立</button>
     </div>
   </div>
 </div>
@@ -570,23 +652,56 @@ function getCSRFToken() {
   return '';
 }
 
-/* ── 用戶管理：編輯/刪除 ── */
-function openUserEdit(uid, name, nickname, isStaff) {
-  var newNick = prompt('編輯用戶 ' + name + ' 的暱稱：', nickname);
-  if (newNick === null) return;
-  var newStaff = confirm('設定 ' + name + ' 為管理員？\n確定=管理員，取消=一般用戶');
+/* ── 用戶管理：編輯（Modal）/ 刪除 ── */
+var userEditId = null;
+
+function openUserEdit(uid, username, nickname, email, isStaff) {
+  userEditId = uid;
+  document.getElementById('user-edit-title').textContent = '👤 編輯用戶 — ' + username;
+  document.getElementById('user-edit-username').value = username;
+  document.getElementById('user-edit-nickname').value = nickname || '';
+  document.getElementById('user-edit-email').value = email || '';
+  document.getElementById('user-edit-password').value = '';
+  document.getElementById('user-edit-staff').checked = isStaff;
+  document.getElementById('userEditModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeUserEditModal() {
+  document.getElementById('userEditModal').style.display = 'none';
+  document.body.style.overflow = '';
+  userEditId = null;
+}
+
+function saveUserEdit() {
+  if (!userEditId) return;
+  var btn = document.querySelector('#userEditModal .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+
   var formData = new FormData();
-  formData.append('nickname', newNick);
-  formData.append('is_staff', newStaff ? 'true' : 'false');
-  fetch('/admin-panel/api/user/' + uid + '/update/', {
+  formData.append('nickname', document.getElementById('user-edit-nickname').value);
+  formData.append('email', document.getElementById('user-edit-email').value);
+  formData.append('is_staff', document.getElementById('user-edit-staff').checked ? 'true' : 'false');
+  var pw = document.getElementById('user-edit-password').value;
+  if (pw) formData.append('password', pw);
+
+  fetch('/admin-panel/api/user/' + userEditId + '/update/', {
     method: 'POST',
     headers: { 'X-CSRFToken': getCSRFToken() },
     body: formData,
   })
     .then(function(r) { return r.json(); })
     .then(function(resp) {
-      if (resp.success) location.reload();
+      if (resp.success) { closeUserEditModal(); location.reload(); }
       else alert('更新失敗：' + (resp.error || ''));
+      btn.textContent = '💾 儲存';
+      btn.disabled = false;
+    })
+    .catch(function(err) {
+      alert('更新失敗：' + err);
+      btn.textContent = '💾 儲存';
+      btn.disabled = false;
     });
 }
 
@@ -601,6 +716,113 @@ function deleteUser(uid, name) {
       if (resp.success) location.reload();
       else alert('刪除失敗：' + (resp.error || ''));
     });
+}
+
+/* ── 用戶管理：新增用戶 ── */
+var userAddModal = document.getElementById('userAddModal');
+
+function openAddUserModal() {
+  userAddModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('user-add-username').value = '';
+  document.getElementById('user-add-password').value = '';
+  document.getElementById('user-add-email').value = '';
+  document.getElementById('user-add-staff').checked = false;
+  document.getElementById('user-add-username').focus();
+}
+
+function closeUserAddModal() {
+  userAddModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function saveNewUser() {
+  var username = document.getElementById('user-add-username').value.trim();
+  var password = document.getElementById('user-add-password').value;
+  var email = document.getElementById('user-add-email').value.trim();
+  var isStaff = document.getElementById('user-add-staff').checked;
+
+  if (!username) { alert('請輸入帳號'); return; }
+  if (!password) { alert('請輸入密碼'); return; }
+
+  var btn = document.querySelector('#userAddModal .btn-primary');
+  btn.textContent = '建立中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('username', username);
+  formData.append('password', password);
+  formData.append('email', email);
+  formData.append('is_staff', isStaff ? 'true' : 'false');
+
+  fetch('/admin-panel/api/user/create/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) {
+        closeUserAddModal();
+        location.reload();
+      } else {
+        alert('建立失敗：' + (resp.error || ''));
+        btn.textContent = '💾 建立';
+        btn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      alert('建立失敗：' + err);
+      btn.textContent = '💾 建立';
+      btn.disabled = false;
+    });
+}
+
+/* ── 批次選取與刪除 ── */
+function toggleAll(prefix, checked) {
+  document.querySelectorAll('.' + prefix + '-cb').forEach(function(cb) {
+    cb.checked = checked;
+  });
+  updateBatchBtn(prefix);
+}
+
+function updateBatchBtn(prefix) {
+  var ids = [];
+  document.querySelectorAll('.' + prefix + '-cb:checked').forEach(function(cb) {
+    ids.push(cb.value);
+  });
+  var btn = document.getElementById(prefix + '-batch-del');
+  if (btn) {
+    btn.disabled = ids.length === 0;
+    var label = ids.length > 0 ? '🗑️ 刪除選取 (' + ids.length + ')' : '🗑️ 刪除選取';
+    btn.innerHTML = label;
+  }
+}
+
+function batchDelete(type) {
+  var prefix = {question: 'q', user: 'u', record: 'r'}[type] || 'q';
+  var labels = {question: '題目', user: '用戶', record: '測驗紀錄'};
+  var ids = [];
+  document.querySelectorAll('.' + prefix + '-cb:checked').forEach(function(cb) {
+    ids.push(parseInt(cb.value));
+  });
+  if (ids.length === 0) { alert('請先選取要刪除的項目'); return; }
+  if (!confirm('確定要刪除選取的 ' + ids.length + ' 個' + (labels[type] || '項目') + ' 嗎？此操作無法還原。')) return;
+
+  fetch('/admin-panel/api/batch-delete/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCSRFToken(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type: type, ids: ids }),
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) location.reload();
+      else alert('刪除失敗：' + (resp.error || ''));
+    })
+    .catch(function(err) { alert('刪除失敗：' + err); });
 }
 
 /* ── 記錄管理：刪除 ── */
@@ -619,9 +841,136 @@ function deleteRecord(rid, info) {
 
 /* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && modal.style.display === 'flex') closeEditModal();
+  if (e.key === 'Escape') {
+    if (modal.style.display === 'flex') closeEditModal();
+    if (userAddModal.style.display === 'flex') closeUserAddModal();
+  }
   if (e.key === 'Enter' && e.ctrlKey && modal.style.display === 'flex') saveQuestion();
+  if (e.key === 'Enter' && e.ctrlKey && userAddModal.style.display === 'flex') saveNewUser();
 });
 </script>
+
+<!-- Profile Modal -->
+<div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 個人資料</h3>
+      <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="profile-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">目前密碼</label>
+        <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼</label>
+        <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+        <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
+        <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeProfileModal()">關閉</button>
+      <button class="btn btn-primary" onclick="saveProfile()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var profileNick = document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '';
+var profileEmail = document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '';
+
+function openProfileModal() {
+  document.getElementById('profile-nickname').value = profileNick || '';
+  document.getElementById('profile-email').value = profileEmail || '';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-delete-confirm').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function saveProfile() {
+  var btn = document.querySelector('#profileModal .btn-primary');
+  btn.textContent = '儲存中...';
+  btn.disabled = true;
+  var formData = new FormData();
+  formData.append('nickname', document.getElementById('profile-nickname').value);
+  formData.append('email', document.getElementById('profile-email').value);
+  var oldPw = document.getElementById('profile-old-pw').value;
+  var newPw = document.getElementById('profile-new-pw').value;
+  fetch('/api/profile/update/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp.success) {
+        alert('儲存失敗：' + (resp.error || ''));
+        btn.textContent = '儲存';
+        btn.disabled = false;
+        return;
+      }
+      if (oldPw && newPw) {
+        var pwData = new FormData();
+        pwData.append('old_password', oldPw);
+        pwData.append('new_password', newPw);
+        return fetch('/api/profile/change-password/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCSRFToken() },
+          body: pwData,
+        }).then(function(r) { return r.json(); }).then(function(pwResp) {
+          if (!pwResp.success) { alert('密碼修改失敗：' + (pwResp.error || '')); }
+          else { alert('個人資料與密碼已更新！'); }
+        });
+      } else {
+        alert('個人資料已更新！');
+      }
+    })
+    .catch(function(err) { alert('錯誤：' + err); })
+    .then(function() {
+      closeProfileModal();
+      location.reload();
+    });
+}
+function deleteMyAccount() {
+  var confirmText = document.getElementById('profile-delete-confirm').value.trim();
+  if (confirmText !== 'DELETE') { alert('請輸入 DELETE 確認刪除帳號'); return; }
+  if (!confirm('確定要永久刪除你的帳號嗎？此操作無法還原！')) return;
+  var formData = new FormData();
+  formData.append('confirm', 'DELETE');
+  fetch('/api/profile/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) { window.location.href = '/'; }
+      else { alert('刪除失敗：' + (resp.error || '')); }
+    });
+}
+</script>
+
 </body>
 </html>
