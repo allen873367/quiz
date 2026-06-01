@@ -10,6 +10,19 @@
 <body>
 <div class="app">
 
+  <!-- 流星雨效果 -->
+  <div class="meteor meteor-1"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-2"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-3"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-4"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-5"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-6"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-7"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <div class="meteor meteor-8"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+
+  <!-- 游標光暈 -->
+  <div class="cursor-glow" id="cursorGlow"></div>
+
   <header class="header">
     <div class="header-inner">
       <a class="brand" href="{% url 'home' %}">
@@ -107,7 +120,7 @@
           <span class="chapter-arrow">→</span>
         </a>
         {% endfor %}
-        <a class="chapter-row" href="{% url 'random_quiz' %}">
+        <a class="chapter-row" href="{% url 'random_quiz_setup' %}">
           <div class="chapter-icon" style="background:linear-gradient(135deg,var(--amber),var(--rose));">★</div>
           <div>
             <div class="chapter-name">隨機挑戰</div>
@@ -273,6 +286,21 @@ function getCSRFToken() {
 }
 </script>
 
+<script>
+/* ── 游標光暈（主頁專用） ── */
+(function() {
+  var glow = document.getElementById('cursorGlow');
+  if (!glow) return;
+  var timer;
+  document.addEventListener('mousemove', function(e) {
+    glow.style.left = e.clientX + 'px';
+    glow.style.top = e.clientY + 'px';
+    glow.style.display = 'block';
+    clearTimeout(timer);
+    timer = setTimeout(function() { glow.style.display = 'none'; }, 3000);
+  });
+}());
+</script>
 
 </body>
 </html>

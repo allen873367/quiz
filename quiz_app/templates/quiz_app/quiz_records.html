@@ -40,6 +40,34 @@
         <span class="section-meta">最近 20 筆</span>
       </div>
 
+      <!-- 模式切換 -->
+      <div class="seg" style="margin-bottom:16px;">
+        <a href="{% url 'quiz_records' %}?mode=general{% if selected_chapter %}&chapter={{ selected_chapter }}{% endif %}{% if selected_count %}&count={{ selected_count }}{% endif %}" class="{% if mode == 'general' %}active{% endif %}">一般測驗</a>
+        <a href="{% url 'quiz_records' %}?mode=sr{% if selected_chapter %}&chapter={{ selected_chapter }}{% endif %}{% if selected_count %}&count={{ selected_count }}{% endif %}" class="{% if mode == 'sr' %}active{% endif %}">間隔學習</a>
+      </div>
+
+      <!-- 篩選選單 -->
+      <form method="get" action="{% url 'quiz_records' %}" style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap;">
+        <input type="hidden" name="mode" value="{{ mode }}">
+        <label class="dim" style="font-size:13px;">章節</label>
+        <select class="input input-sm" name="chapter" onchange="this.form.submit()" style="width:auto;min-width:160px;">
+          <option value="">全部章節</option>
+          {% for ch in chapters %}
+          <option value="{{ ch }}" {% if selected_chapter == ch %}selected{% endif %}>{{ ch }}</option>
+          {% endfor %}
+        </select>
+        <label class="dim" style="font-size:13px;">題數</label>
+        <select class="input input-sm" name="count" onchange="this.form.submit()" style="width:auto;min-width:100px;">
+          <option value="">全部</option>
+          <option value="5" {% if selected_count == '5' %}selected{% endif %}>5 題</option>
+          <option value="10" {% if selected_count == '10' %}selected{% endif %}>10 題</option>
+          <option value="15" {% if selected_count == '15' %}selected{% endif %}>15 題</option>
+          <option value="20" {% if selected_count == '20' %}selected{% endif %}>20 題</option>
+          <option value="23" {% if selected_count == '23' %}selected{% endif %}>23 題</option>
+        </select>
+        <noscript><button class="btn btn-sm" type="submit">篩選</button></noscript>
+      </form>
+
       {% if records %}
       <div class="record-list">
         {% for record in records %}

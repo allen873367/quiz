@@ -106,47 +106,10 @@ def _build_shuffled_options(q):
 
 
 def random_quiz(request):
+    """跳轉到隨機挑戰設定頁面"""
     if not request.user.is_authenticated:
         return redirect('login')
-
-    all_questions = list(Question.objects.all())
-
-    # 分離連貫題和非連貫題
-    sequential_questions = [q for q in all_questions if q.sequence_group]
-    non_sequential_questions = [q for q in all_questions if not q.sequence_group]
-
-    # 對非連貫題進行隨機打亂
-    random.shuffle(non_sequential_questions)
-
-    # 對連貫題按組別和題號排序
-    sequential_questions.sort(key=lambda q: (q.sequence_group, q.question_number))
-
-    # 合併題目
-    questions = non_sequential_questions + sequential_questions
-
-    quiz_data = []
-    for q in questions:
-        options, computed_answer = _build_shuffled_options(q)
-
-        quiz_data.append({
-            'id': q.id,
-            'question': q.question_text,
-            'question_image': q.question_image.url if q.question_image else None,
-            'options': options,
-            'correct_answer': computed_answer,
-        })
-
-    request.session['quiz_data'] = quiz_data
-    request.session['chapter'] = '隨機測驗'
-    request.session['start_time'] = None
-    request.session['sr_enabled'] = True
-    request.session['sr_wrong_ids'] = []
-    request.session['sr_round'] = 0
-
-    return render(request, 'quiz_app/take_quiz.html', {
-        'quiz_data': quiz_data,
-        'chapter': '隨機測驗',
-    })
+    return redirect('random_quiz_setup')
 
 
 def start_quiz(request, chapter):
@@ -171,6 +134,78 @@ def start_quiz(request, chapter):
         'estimated_minutes': estimated_minutes,
         'recent_record': recent_record,
         'user': request.user,
+    })
+
+
+def random_quiz_setup(request):
+    """隨機挑戰設定頁面 — 可選題數、章節、間隔學習"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    chapters = Question.objects.values_list('chapter', flat=True).distinct().order_by('chapter')
+    total_all = Question.objects.count()
+
+    return render(request, 'quiz_app/random_quiz_setup.html', {
+        'chapters': chapters,
+        'total': total_all,
+    })
+
+
+def take_random_quiz(request):
+    """接收設定參數，建立混題測驗"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    selected_chapters = request.GET.getlist('chapters')
+    count = request.GET.get('count', None)
+    sr = request.GET.get('sr', '0') == '1'
+
+    if selected_chapters:
+        questions = list(Question.objects.filter(chapter__in=selected_chapters))
+    else:
+        # 沒選章節 = 全部
+        questions = list(Question.objects.all())
+
+    if not questions:
+        return redirect('random_quiz_setup')
+
+    random.shuffle(questions)
+
+    if count is not None:
+        try:
+            count = int(count)
+            if count < len(questions):
+                questions = questions[:count]
+        except (ValueError, TypeError):
+            pass
+
+    quiz_data = []
+    for q in questions:
+        options, computed_answer = _build_shuffled_options(q)
+        quiz_data.append({
+            'id': q.id,
+            'question': q.question_text,
+            'question_image': q.question_image.url if q.question_image else None,
+            'options': options,
+            'correct_answer': computed_answer,
+            'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
+            'explanation': q.explanation or '',
+        })
+
+    request.session['quiz_data'] = quiz_data
+    request.session['chapter'] = '隨機測驗'
+    request.session['start_time'] = None
+    request.session['sr_enabled'] = sr
+    request.session['sr_wrong_ids'] = []
+    request.session['sr_round'] = 0
+    if sr:
+        request.session['sr_original_total'] = len(questions)
+        request.session['sr_first_correct'] = 0
+        request.session['sr_cumulative_time'] = 0
+
+    return render(request, 'quiz_app/take_quiz.html', {
+        'quiz_data': quiz_data,
+        'chapter': '隨機測驗',
     })
 
 
@@ -212,6 +247,10 @@ def take_quiz(request, chapter):
     request.session['sr_enabled'] = sr
     request.session['sr_wrong_ids'] = []  # 用於間隔學習的錯題 ID
     request.session['sr_round'] = 0
+    if sr:
+        request.session['sr_original_total'] = len(questions)
+        request.session['sr_first_correct'] = 0   # 第一輪答對數（評分依據）
+        request.session['sr_cumulative_time'] = 0  # 所有輪次總時間
 
     return render(request, 'quiz_app/take_quiz.html', {
         'quiz_data': quiz_data,
@@ -226,6 +265,9 @@ def submit_quiz(request):
         sr_enabled = request.session.get('sr_enabled', False)
         sr_wrong_ids = request.session.get('sr_wrong_ids', [])
         sr_round = request.session.get('sr_round', 0)
+        sr_original_total = request.session.get('sr_original_total')
+        sr_first_correct = request.session.get('sr_first_correct', 0)
+        sr_cumulative_time = request.session.get('sr_cumulative_time', 0)
         time_spent = int(request.POST.get('time_spent', 0))
 
         results = []
@@ -259,52 +301,94 @@ def submit_quiz(request):
             })
 
         total_questions = len(results)
-        score = (correct_count / total_questions * 100) if total_questions > 0 else 0
 
-        # 間隔學習法：將錯題加入 SR 佇列
-        if sr_enabled and new_wrong_ids and sr_round < 3:
-            # 合併新的錯題與尚未複習的錯題
-            sr_wrong_ids = list(set(sr_wrong_ids + new_wrong_ids))
-            # 從資料庫取出錯題
-            wrong_questions = list(Question.objects.filter(id__in=sr_wrong_ids))
-            random.shuffle(wrong_questions)
+        # ─── 間隔學習邏輯 ───
+        if sr_enabled:
+            if sr_round == 0:
+                # 第一輪：記錄原始答對數（作為最終評分依據）
+                request.session['sr_first_correct'] = correct_count
+                request.session['sr_cumulative_time'] = time_spent
 
-            sr_quiz_data = []
-            for q in wrong_questions:
-                options, computed_answer = _build_shuffled_options(q)
-                sr_quiz_data.append({
-                    'id': q.id,
-                    'question': q.question_text,
-                    'question_image': q.question_image.url if q.question_image else None,
-                    'options': options,
-                    'correct_answer': computed_answer,
-                    'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
-                    'explanation': q.explanation or '',
-                })
+                if new_wrong_ids:
+                    # 有錯題 → 只出錯題進入間隔學習，無次數上限
+                    sr_wrong_ids = new_wrong_ids[:]
+                    wrong_qs = list(Question.objects.filter(id__in=sr_wrong_ids))
+                    random.shuffle(wrong_qs)
+                    sr_quiz_data = []
+                    for q in wrong_qs:
+                        options, computed_answer = _build_shuffled_options(q)
+                        sr_quiz_data.append({
+                            'id': q.id,
+                            'question': q.question_text,
+                            'question_image': q.question_image.url if q.question_image else None,
+                            'options': options,
+                            'correct_answer': computed_answer,
+                            'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
+                            'explanation': q.explanation or '',
+                        })
+                    request.session['quiz_data'] = sr_quiz_data
+                    request.session['sr_wrong_ids'] = sr_wrong_ids
+                    request.session['sr_round'] = 1
+                    return render(request, 'quiz_app/take_quiz.html', {
+                        'quiz_data': sr_quiz_data,
+                        'chapter': chapter,
+                        'sr_round': 1,
+                    })
+                # 第一輪全對 → 直接結算（不進 SR）
+            else:
+                # ── 間隔學習輪次（sr_round >= 1）──
+                # 累計時間
+                request.session['sr_cumulative_time'] = sr_cumulative_time + time_spent
 
-            # 更新 session
-            request.session['quiz_data'] = sr_quiz_data
-            request.session['sr_wrong_ids'] = sr_wrong_ids
-            request.session['sr_round'] = sr_round + 1
+                # 移除此次答對的題目：只保留仍然答錯的 ID
+                sr_wrong_ids = new_wrong_ids[:]
+                request.session['sr_wrong_ids'] = sr_wrong_ids
 
-            return render(request, 'quiz_app/take_quiz.html', {
-                'quiz_data': sr_quiz_data,
-                'chapter': chapter,
-                'sr_round': sr_round + 1,
-            })
+                if sr_wrong_ids:
+                    # 還有錯題 → 繼續下一輪（無上限次數）
+                    wrong_qs = list(Question.objects.filter(id__in=sr_wrong_ids))
+                    random.shuffle(wrong_qs)
+                    sr_quiz_data = []
+                    for q in wrong_qs:
+                        options, computed_answer = _build_shuffled_options(q)
+                        sr_quiz_data.append({
+                            'id': q.id,
+                            'question': q.question_text,
+                            'question_image': q.question_image.url if q.question_image else None,
+                            'options': options,
+                            'correct_answer': computed_answer,
+                            'difficulty': q.get_difficulty_display() if hasattr(q, 'get_difficulty_display') else '',
+                            'explanation': q.explanation or '',
+                        })
+                    request.session['quiz_data'] = sr_quiz_data
+                    request.session['sr_round'] = sr_round + 1
+                    return render(request, 'quiz_app/take_quiz.html', {
+                        'quiz_data': sr_quiz_data,
+                        'chapter': chapter,
+                        'sr_round': sr_round + 1,
+                    })
+                # 全部答對 → 結算
 
-        # 時間格式
-        time_minutes = time_spent // 60
-        time_seconds = time_spent % 60
+        # ─── 結算（非 SR 或 SR 完成）───
+        if sr_enabled and sr_original_total:
+            # SR：使用第一輪答對數作為評分基準
+            final_total = sr_original_total
+            final_correct = sr_first_correct
+            final_time = request.session['sr_cumulative_time']
+        else:
+            final_total = total_questions
+            final_correct = correct_count
+            final_time = time_spent
+        final_score = (final_correct / final_total * 100) if final_total > 0 else 0
 
         # 保存作答記錄
         quiz_record = QuizRecord.objects.create(
             user=request.user if request.user.is_authenticated else None,
             chapter=chapter,
-            total_questions=total_questions,
-            correct_count=correct_count,
-            score=score,
-            time_spent=time_spent,
+            total_questions=final_total,
+            correct_count=final_correct,
+            score=final_score,
+            time_spent=final_time,
             is_sr=sr_enabled,
         )
 
@@ -321,14 +405,21 @@ def submit_quiz(request):
         request.session.pop('sr_enabled', None)
         request.session.pop('sr_wrong_ids', None)
         request.session.pop('sr_round', None)
+        request.session.pop('sr_original_total', None)
+        request.session.pop('sr_first_correct', None)
+        request.session.pop('sr_cumulative_time', None)
+
+        # 時間格式
+        time_minutes = final_time // 60
+        time_seconds = final_time % 60
 
         return render(request, 'quiz_app/result.html', {
             'results': results,
-            'correct_count': correct_count,
-            'total_questions': total_questions,
-            'score': score,
+            'correct_count': final_correct,
+            'total_questions': final_total,
+            'score': final_score,
             'chapter': chapter,
-            'time_spent': time_spent,
+            'time_spent': final_time,
             'time_minutes': time_minutes,
             'time_seconds': time_seconds,
             'sr_used': sr_enabled,
@@ -341,35 +432,115 @@ def submit_quiz(request):
 def quiz_records(request):
     if not request.user.is_authenticated:
         return redirect('login')
-    records = QuizRecord.objects.filter(user=request.user).order_by('-created_at')[:20]
-    return render(request, 'quiz_app/quiz_records.html', {'records': records})
+    mode = request.GET.get('mode', 'general')
+    chapter = request.GET.get('chapter', '')
+    q_count = request.GET.get('count', '')
+    qs = QuizRecord.objects.filter(user=request.user)
+    if mode == 'sr':
+        qs = qs.filter(is_sr=True)
+    else:
+        qs = qs.filter(is_sr=False)
+    if chapter:
+        qs = qs.filter(chapter=chapter)
+    if q_count:
+        try:
+            qs = qs.filter(total_questions=int(q_count))
+        except ValueError:
+            pass
+    records = qs.order_by('-created_at')[:20]
+    chapters_list = sorted(set(
+        QuizRecord.objects.values_list('chapter', flat=True)
+    ))
+    return render(request, 'quiz_app/quiz_records.html', {
+        'records': records,
+        'mode': mode,
+        'chapters': chapters_list,
+        'selected_chapter': chapter,
+        'selected_count': q_count,
+    })
 
 
 def leaderboard(request):
-    records = QuizRecord.objects.filter(is_sr=False).order_by('-score')[:20]
+    """一般排行榜（支援章節與題數篩選）"""
+    chapter = request.GET.get('chapter')
+    q_count = request.GET.get('count')
+    # 預設值（None 表示「全部」，不篩選）
+    if q_count is None:
+        q_count = ''
+    qs = QuizRecord.objects.filter(is_sr=False)
+    if chapter:
+        qs = qs.filter(chapter=chapter)
+    if q_count:
+        try:
+            qs = qs.filter(total_questions=int(q_count))
+        except ValueError:
+            pass
+    records = qs.order_by('-score')[:20]
     for record in records:
         record.time_minutes = record.time_spent // 60
         record.time_seconds = record.time_spent % 60
-    return render(request, 'quiz_app/leaderboard.html', {'records': records, 'mode': 'general'})
+
+    # 取得所有出現過的章節
+    chapters_list = sorted(set(
+        QuizRecord.objects.values_list('chapter', flat=True)
+    ))
+    return render(request, 'quiz_app/leaderboard.html', {
+        'records': records,
+        'mode': 'general',
+        'chapters': chapters_list,
+        'selected_chapter': chapter,
+        'selected_count': q_count,
+    })
 
 
 def sr_leaderboard(request):
     # 間隔學習排行榜：按時間升序（最快完成排第一）
-    records = QuizRecord.objects.filter(is_sr=True).order_by('time_spent')[:20]
+    chapter = request.GET.get('chapter', '')
+    q_count = request.GET.get('count', '')
+    qs = QuizRecord.objects.filter(is_sr=True)
+    if chapter:
+        qs = qs.filter(chapter=chapter)
+    if q_count:
+        try:
+            qs = qs.filter(total_questions=int(q_count))
+        except ValueError:
+            pass
+    records = qs.order_by('time_spent')[:20]
     for record in records:
         record.time_minutes = record.time_spent // 60
         record.time_seconds = record.time_spent % 60
-    return render(request, 'quiz_app/leaderboard.html', {'records': records, 'mode': 'sr'})
+
+    chapters_list = sorted(set(
+        QuizRecord.objects.values_list('chapter', flat=True)
+    ))
+    return render(request, 'quiz_app/leaderboard.html', {
+        'records': records,
+        'mode': 'sr',
+        'chapters': chapters_list,
+        'selected_chapter': chapter,
+        'selected_count': q_count,
+    })
 
 
 def wrong_answers(request):
     if not request.user.is_authenticated:
         return redirect('login')
     from django.db.models import Count
-    records = QuizRecord.objects.filter(user=request.user).annotate(
+    chapter = request.GET.get('chapter', '')
+    qs = QuizRecord.objects.filter(user=request.user)
+    if chapter:
+        qs = qs.filter(chapter=chapter)
+    records = qs.annotate(
         wrong_count=Count('wronganswer')
     ).filter(wrong_count__gt=0).order_by('-created_at')[:20]
-    return render(request, 'quiz_app/wrong_answers.html', {'records': records})
+    chapters_list = sorted(set(
+        QuizRecord.objects.values_list('chapter', flat=True)
+    ))
+    return render(request, 'quiz_app/wrong_answers.html', {
+        'records': records,
+        'chapters': chapters_list,
+        'selected_chapter': chapter,
+    })
 
 
 def wrong_answers_detail(request, record_id):
@@ -392,6 +563,7 @@ def wrong_answers_detail(request, record_id):
         wrong_data.append({
             'wrong': wrong,
             'options': options,
+            'explanation': question.explanation or '',
         })
 
     return render(request, 'quiz_app/wrong_answers_detail.html', {

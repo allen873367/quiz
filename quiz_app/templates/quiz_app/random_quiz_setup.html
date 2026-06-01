@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>排行榜</title>
+  <title>隨機挑戰 — 設定</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
@@ -18,7 +18,7 @@
       </a>
       <nav class="nav">
         <a class="nav-link" href="{% url 'home' %}">首頁</a>
-        <a class="nav-link active" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
@@ -37,92 +37,74 @@
   <main>
     <div class="container">
 
-      <div class="section-head">
-        <h3 class="section-title">🏆 排行榜</h3>
-        <span class="section-meta">前 20 名</span>
-      </div>
-
-      <!-- 模式切換 -->
-      <div class="seg" style="margin-bottom:16px;">
-        <a href="{% url 'leaderboard' %}?chapter={{ selected_chapter }}&count={{ selected_count }}" class="{% if mode == 'general' %}active{% endif %}">一般排行</a>
-        <a href="{% url 'sr_leaderboard' %}?chapter={{ selected_chapter }}&count={{ selected_count }}" class="{% if mode == 'sr' %}active{% endif %}">間隔學習排行</a>
-      </div>
-
-      <!-- 篩選選單 -->
-      <form method="get" action="{% if mode == 'sr' %}{% url 'sr_leaderboard' %}{% else %}{% url 'leaderboard' %}{% endif %}" style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap;">
-        <label class="dim" style="font-size:13px;">章節</label>
-        <select class="input input-sm" name="chapter" onchange="this.form.submit()" style="width:auto;min-width:160px;">
-          <option value="">全部章節</option>
-          {% for ch in chapters %}
-          <option value="{{ ch }}" {% if selected_chapter == ch %}selected{% endif %}>{{ ch }}</option>
-          {% endfor %}
-        </select>
-        <label class="dim" style="font-size:13px;">題數</label>
-        <select class="input input-sm" name="count" onchange="this.form.submit()" style="width:auto;min-width:100px;">
-          <option value="">全部</option>
-          <option value="5" {% if selected_count == '5' %}selected{% endif %}>5 題</option>
-          <option value="10" {% if selected_count == '10' %}selected{% endif %}>10 題</option>
-          <option value="15" {% if selected_count == '15' %}selected{% endif %}>15 題</option>
-          <option value="20" {% if selected_count == '20' %}selected{% endif %}>20 題</option>
-          <option value="23" {% if selected_count == '23' %}selected{% endif %}>23 題</option>
-        </select>
-        <noscript><button class="btn btn-sm" type="submit">篩選</button></noscript>
-      </form>
-
-      {% if records %}
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="text-align:center;">#</th>
-            <th>用戶</th>
-            <th>章節</th>
-            <th>分數</th>
-            <th>答對/總題數</th>
-            <th>時間</th>
-            <th>日期</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for record in records %}
-          <tr>
-            <td style="text-align:center;">
-              {% if forloop.counter == 1 %}
-              <span class="rank-medal rank-1">1</span>
-              {% elif forloop.counter == 2 %}
-              <span class="rank-medal rank-2">2</span>
-              {% elif forloop.counter == 3 %}
-              <span class="rank-medal rank-3">3</span>
-              {% else %}
-              <span class="mono dim">{{ forloop.counter }}</span>
-              {% endif %}
-            </td>
-            <td>{{ record.user.nickname|default:record.user.username|default:"匿名" }}</td>
-            <td>{{ record.chapter }}</td>
-            <td style="color:var(--emerald);font-weight:600;">{{ record.score|floatformat:0 }}</td>
-            <td>{{ record.correct_count }}/{{ record.total_questions }}</td>
-            <td>
-              {% if record.time_minutes > 0 %}{{ record.time_minutes }}分{% endif %}{{ record.time_seconds }}秒
-            </td>
-            <td class="dim">{{ record.created_at|date:"Y-m-d H:i" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty">
-        <div>
-          {% if mode == 'sr' %}
-            暫無間隔學習記錄
-          {% else %}
-            暫無測驗記錄
-          {% endif %}
+      <!-- 主卡片 -->
+      <div class="panel">
+        <div class="panel-header">
+          <span><span class="dim">★</span> 隨機挑戰</span>
+          <span class="tag tag-amber">混題測驗</span>
         </div>
-        <div style="margin-top:8px;color:var(--text-faint);">選擇一個章節開始測驗吧</div>
-      </div>
-      {% endif %}
+        <div class="panel-body">
+          <div style="margin-bottom:28px;">
+            <h1 style="font-size:36px;margin:0 0 12px;letter-spacing:-0.02em;line-height:1.2;">
+              隨機挑戰
+            </h1>
+            <p style="color:var(--text-muted);margin:0;font-size:15px;line-height:1.7;">
+              跨章節混合出題，可自由選擇要納入的章節範圍
+            </p>
+          </div>
 
-      <div style="margin-top:24px;">
-        <a class="btn" href="{% url 'home' %}">← 回首頁</a>
+          <!-- 設定列 -->
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;padding:20px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);">
+
+            <!-- 題數 -->
+            <div style="min-width:200px;">
+              <div class="panel-label" style="margin-bottom:8px;">題數</div>
+              <div class="seg" id="seg-count">
+                <button data-count="5" onclick="setCount(5)">5 題</button>
+                <button data-count="10" onclick="setCount(10)">10 題</button>
+                <button data-count="15" onclick="setCount(15)">15 題</button>
+                <button data-count="20" onclick="setCount(20)">20 題</button>
+                <button data-count="{{ total }}" onclick="setCount({{ total }})" class="active">全部 ({{ total }})</button>
+              </div>
+            </div>
+
+            <!-- 間隔學習 -->
+            <div>
+              <div class="panel-label" style="margin-bottom:8px;">間隔學習</div>
+              <div class="toggle on" id="toggle-sr" onclick="toggleSr()" role="switch" aria-checked="true">
+                <span class="toggle-track"></span>
+                <span class="toggle-label" id="sr-label">已開啟</span>
+              </div>
+            </div>
+
+            <!-- 章節選擇 -->
+            <div style="flex:1;min-width:280px;">
+              <div class="panel-label" style="margin-bottom:8px;">選擇章節 <span class="dim" style="font-weight:400;font-size:12px;">（未選 = 全部）</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;" id="chapter-list">
+                {% for ch in chapters %}
+                <label class="chapter-checkbox" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;cursor:pointer;font-size:13px;">
+                  <input type="checkbox" value="{{ ch }}" class="ch-cb" checked>
+                  {{ ch }}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 底部資訊 -->
+          <div style="display:flex;gap:24px;margin-top:16px;font-size:13px;color:var(--text-muted);align-items:center;">
+            <span>題庫總數：<strong>{{ total }}</strong></span>
+            <span>將作答：<strong id="selected-count">{{ total }} 題</strong></span>
+            <div style="margin-left:auto;display:flex;gap:10px;">
+              <a class="btn btn-lg" href="{% url 'home' %}" style="white-space:nowrap;">← 回首頁</a>
+              <button class="btn btn-primary btn-lg" id="btn-start" onclick="startQuiz()" style="white-space:nowrap;">
+                🚀 開始作答
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
@@ -136,6 +118,39 @@
   </footer>
 
 </div>
+
+<script>
+(function () {
+  var count = {{ total }};
+  var sr = true;
+
+  window.setCount = function (n) {
+    count = n;
+    document.querySelectorAll('#seg-count button').forEach(function (btn) {
+      btn.classList.toggle('active', parseInt(btn.dataset.count, 10) === n);
+    });
+    document.getElementById('selected-count').textContent = n + ' 題';
+  };
+
+  window.toggleSr = function () {
+    sr = !sr;
+    var el = document.getElementById('toggle-sr');
+    el.classList.toggle('on', sr);
+    el.setAttribute('aria-checked', String(sr));
+    document.getElementById('sr-label').textContent = sr ? '已開啟' : '已關閉';
+  };
+
+  window.startQuiz = function () {
+    var cbs = document.querySelectorAll('.ch-cb:checked');
+    var params = new URLSearchParams();
+    params.set('count', count);
+    params.set('sr', sr ? '1' : '0');
+    cbs.forEach(function (cb) { params.append('chapters', cb.value); });
+    window.location.href = '{% url 'take_random_quiz' %}?' + params.toString();
+  };
+}());
+</script>
+
 
 <!-- ═══ Profile Modal ═══ -->
 <div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">

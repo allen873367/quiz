@@ -23,6 +23,10 @@ if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
 
 # Application definition
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://joining-skies-crabmeat.ngrok-free.dev',
+]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -141,10 +145,3 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-
-# CSRF settings for Render
-CSRF_TRUSTED_ORIGINS = []
-if os.environ.get('RENDER_EXTERNAL_URL'):
-    render_url = os.environ.get('RENDER_EXTERNAL_URL')
-    if render_url and render_url not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(render_url)

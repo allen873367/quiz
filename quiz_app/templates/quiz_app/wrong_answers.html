@@ -40,6 +40,18 @@
         <span class="section-meta">點擊查看詳情</span>
       </div>
 
+      <!-- 篩選選單 -->
+      <form method="get" action="{% url 'wrong_answers' %}" style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap;">
+        <label class="dim" style="font-size:13px;">章節</label>
+        <select class="input input-sm" name="chapter" onchange="this.form.submit()" style="width:auto;min-width:160px;">
+          <option value="">全部章節</option>
+          {% for ch in chapters %}
+          <option value="{{ ch }}" {% if selected_chapter == ch %}selected{% endif %}>{{ ch }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button class="btn btn-sm" type="submit">篩選</button></noscript>
+      </form>
+
       {% if records %}
       <div class="record-list">
         {% for record in records %}
