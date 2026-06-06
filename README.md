@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🌳 資料結構主題測驗網站
 
 > **Aurora Glass** 極光玻璃主題 × Django 6.0.5 線上測驗平台
@@ -223,3 +224,7 @@ python manage.py createsuperuser
 - **CBF113018** 郭漢廷
 
 *資料結構期末專題 — 樹狀結構主題測驗網站*
+=======
+# hanting-team-
+期末專題
+>>>>>>> 421d36d5e111f2fd8458385b15a70fc2f4c9f5f1
