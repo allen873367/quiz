@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     nickname = models.CharField(max_length=50, blank=True, verbose_name='暱稱')
     student_class = models.CharField(max_length=50, blank=True, null=True, verbose_name='班級')
+    is_teacher = models.BooleanField(default=False, verbose_name='教師身分')
 
     class Meta:
         verbose_name = '使用者'
@@ -58,6 +59,8 @@ class Question(models.Model):
         blank=True, verbose_name='題目詳解',
         help_text='作答後顯示的詳細解析，說明為什麼正確答案是對的'
     )
+    error_count = models.IntegerField(default=0, verbose_name='累計錯誤次數')
+    total_attempt_count = models.IntegerField(default=0, verbose_name='累計答題次數')
 
     class Meta:
         verbose_name = '題目'
@@ -67,6 +70,18 @@ class Question(models.Model):
 
     def __str__(self):
         return f"{self.chapter} - 第{self.question_number}題"
+
+    @property
+    def error_rate(self):
+        """回傳錯誤率（0~100），若無答題記錄則回傳 0"""
+        if self.total_attempt_count > 0:
+            return round(self.error_count / self.total_attempt_count * 100, 1)
+        return 0.0
+
+    @property
+    def is_boss_question(self):
+        """錯誤率 >= 70% 且至少有 5 次答題記錄 → 魔王題"""
+        return self.total_attempt_count >= 5 and self.error_rate >= 70
 
 
 class QuizRecord(models.Model):
@@ -101,3 +116,35 @@ class WrongAnswer(models.Model):
 
     def __str__(self):
         return f"{self.question.chapter} - 第{self.question.question_number}題"
+
+
+class Classroom(models.Model):
+    name = models.CharField(max_length=100, verbose_name='班級名稱')
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='classrooms', verbose_name='教師')
+    invite_code = models.CharField(max_length=20, unique=True, verbose_name='邀請碼')
+    description = models.TextField(blank=True, verbose_name='班級描述')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='建立時間')
+    is_active = models.BooleanField(default=True, verbose_name='啟用中')
+
+    class Meta:
+        verbose_name = '班級'
+        verbose_name_plural = '班級'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.teacher.nickname})"
+
+
+class ClassroomEnrollment(models.Model):
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE, related_name='enrollments', verbose_name='班級')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments', verbose_name='學生')
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name='加入時間')
+
+    class Meta:
+        verbose_name = '班級成員'
+        verbose_name_plural = '班級成員'
+        unique_together = ['classroom', 'student']
+        ordering = ['joined_at']
+
+    def __str__(self):
+        return f"{self.student.nickname} → {self.classroom.name}"

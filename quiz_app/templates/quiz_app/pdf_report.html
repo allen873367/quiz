@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<title>學習歷程報告 — 資料結構測驗</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 1.5cm;
+  }
+  @page :first {
+    @top-center {
+      content: '';
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", -apple-system, sans-serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 0;
+    max-width: 210mm;
+    margin: 0 auto;
+  }
+
+  .report-header {
+    background: linear-gradient(135deg, #0a0a23, #1a1a4e);
+    color: #fff;
+    padding: 40px 32px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+    page-break-inside: avoid;
+  }
+  .report-header h1 {
+    font-size: 28pt;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
+  .report-header .subtitle {
+    font-size: 14pt;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+  }
+  .report-header .meta {
+    margin-top: 20px;
+    font-size: 10pt;
+    color: rgba(255,255,255,0.6);
+  }
+  .report-header .meta span { margin-right: 24px; }
+
+  .section {
+    margin-bottom: 28px;
+    page-break-inside: avoid;
+  }
+  .section-title {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #0a0a23;
+    border-bottom: 3px solid #00d4ff;
+    padding-bottom: 6px;
+    margin-bottom: 16px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: #f0f4ff;
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+  }
+  .stat-card .value {
+    font-size: 24pt;
+    font-weight: 800;
+    color: #0a0a23;
+    line-height: 1.2;
+  }
+  .stat-card .label {
+    font-size: 9pt;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .stat-card.highlight .value { color: #00d4ff; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11pt;
+  }
+  table th {
+    background: #0a0a23;
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  table tr:nth-child(even) td { background: #f8fafc; }
+
+  .rate-bar {
+    display: inline-block;
+    height: 8px;
+    border-radius: 4px;
+    min-width: 60px;
+    background: #e2e8f0;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .rate-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+  }
+
+  .footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px solid #e2e8f0;
+    font-size: 9pt;
+    color: #94a3b8;
+    text-align: center;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 9pt;
+    font-weight: 600;
+  }
+  .tag-green { background: #d1fae5; color: #065f46; }
+  .tag-amber { background: #fef3c7; color: #92400e; }
+  .tag-red   { background: #fee2e2; color: #991b1b; }
+
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <h1>📊 學習歷程報告</h1>
+  <div class="subtitle">資料結構測驗 — 學習總覽</div>
+  <div class="meta">
+    <span>👤 {{ user.nickname|default:user.username }}</span>
+    {% if user.student_class %}<span>🏫 {{ user.student_class }}</span>{% endif %}
+    <span>📅 {{ generated_at }}</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📈 學習總覽</div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="value">{{ total_quiz }}</div>
+      <div class="label">測驗次數</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ total_questions }}</div>
+      <div class="label">總答題數</div>
+    </div>
+    <div class="stat-card highlight">
+      <div class="value">{{ total_correct }}</div>
+      <div class="label">總正確數</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ total_wrong }}</div>
+      <div class="label">總錯誤數</div>
+    </div>
+    <div class="stat-card highlight">
+      <div class="value">{{ avg_score }}</div>
+      <div class="label">平均分數</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📚 各章節表現</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%;">章節</th>
+        <th style="width:15%;text-align:center;">答對</th>
+        <th style="width:15%;text-align:center;">總題數</th>
+        <th style="width:35%;">正確率</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ch in chapters %}
+      <tr>
+        <td>{{ ch.name }}</td>
+        <td style="text-align:center;">{{ ch.correct }}</td>
+        <td style="text-align:center;">{{ ch.total }}</td>
+        <td>
+          <span class="rate-bar" style="width:120px;">
+            <span class="rate-bar-fill" style="width:{{ ch.rate }}%;background:{% if ch.rate >= 80 %}#00e676{% elif ch.rate >= 60 %}#ffd93d{% else %}#ff6b6b{% endif %};"></span>
+          </span>
+          <span>{{ ch.rate }}%</span>
+          {% if ch.rate >= 80 %}
+            <span class="tag tag-green">優秀</span>
+          {% elif ch.rate >= 60 %}
+            <span class="tag tag-amber">加油</span>
+          {% else %}
+            <span class="tag tag-red">待加強</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  資料結構測驗網站 · 報告產生時間：{{ generated_at }} · 此報告為系統自動生成
+</div>
+
+</body>
+</html>

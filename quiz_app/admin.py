@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import Question, QuizRecord, WrongAnswer, User
+from .models import Question, QuizRecord, WrongAnswer, User, Classroom, ClassroomEnrollment
 
 
 @admin.register(User)
@@ -77,3 +77,17 @@ class WrongAnswerAdmin(admin.ModelAdmin):
     list_filter = ['question__chapter', 'created_at']
     search_fields = ['question__question_text']
     readonly_fields = ['created_at']
+
+
+@admin.register(Classroom)
+class ClassroomAdmin(admin.ModelAdmin):
+    list_display = ['name', 'teacher', 'invite_code', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'invite_code', 'teacher__nickname']
+
+
+@admin.register(ClassroomEnrollment)
+class ClassroomEnrollmentAdmin(admin.ModelAdmin):
+    list_display = ['classroom', 'student', 'joined_at']
+    list_filter = ['classroom__name']
+    search_fields = ['student__nickname']

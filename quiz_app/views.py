@@ -347,7 +347,8 @@ def submit_quiz(request):
                 request.session['sr_cumulative_time'] = time_spent
 
                 if new_wrong_ids:
-                    # 有錯題 → 只出錯題進入間隔學習，無次數上限
+                    # 有錯題 → 保存第一輪完整結果，只出錯題進入間隔學習
+                    request.session['sr_full_results'] = results
                     sr_wrong_ids = new_wrong_ids[:]
                     wrong_qs = list(Question.objects.filter(id__in=sr_wrong_ids))
                     random.shuffle(wrong_qs)
@@ -412,10 +413,14 @@ def submit_quiz(request):
             final_total = sr_original_total
             final_correct = sr_first_correct
             final_time = request.session['sr_cumulative_time']
+            # 使用第一輪完整結果顯示答題詳解
+            sr_full_results = request.session.get('sr_full_results', results)
+            display_results = sr_full_results
         else:
             final_total = total_questions
             final_correct = correct_count
             final_time = time_spent
+            display_results = results
         final_score = (final_correct / final_total * 100) if final_total > 0 else 0
 
         # 保存作答記錄
@@ -429,14 +434,42 @@ def submit_quiz(request):
             is_sr=sr_enabled,
         )
 
-        # 保存錯題記錄
-        for wrong in wrong_answers:
-            question = Question.objects.get(id=wrong['question_id'])
-            WrongAnswer.objects.create(
-                quiz_record=quiz_record,
-                question=question,
-                user_answer=wrong['user_answer'],
-            )
+        # 保存錯題記錄（使用第一輪的錯題資料）
+        if sr_enabled and sr_original_total:
+            for item in display_results:
+                if not item['is_correct']:
+                    question = Question.objects.get(question_text=item['question'])
+                    WrongAnswer.objects.create(
+                        quiz_record=quiz_record,
+                        question=question,
+                        user_answer=item['user_answer'],
+                    )
+        else:
+            for wrong in wrong_answers:
+                question = Question.objects.get(id=wrong['question_id'])
+                WrongAnswer.objects.create(
+                    quiz_record=quiz_record,
+                    question=question,
+                    user_answer=wrong['user_answer'],
+                )
+
+        # 更新題目的錯誤率統計（非 SR 輪次才計數，避免重複累計）
+        if not sr_enabled or sr_round == 0:
+            for item in quiz_data:
+                qid = item['id']
+                try:
+                    q = Question.objects.get(id=qid)
+                    q.total_attempt_count = models.F('total_attempt_count') + 1
+                    q.save(update_fields=['total_attempt_count'])
+                except Question.DoesNotExist:
+                    pass
+            for wrong in wrong_answers:
+                try:
+                    q = Question.objects.get(id=wrong['question_id'])
+                    q.error_count = models.F('error_count') + 1
+                    q.save(update_fields=['error_count'])
+                except Question.DoesNotExist:
+                    pass
 
         # 清除 SR session
         request.session.pop('sr_enabled', None)
@@ -1279,3 +1312,408 @@ def api_question_error_stats(request):
         },
         'option_distribution': option_dist,
     })
+
+
+# ═══════════════════════════════════════════
+#   Feature 1: 學習數據與圖表分析 API
+# ═══════════════════════════════════════════
+
+@require_http_methods(['GET'])
+def api_my_chapter_stats(request):
+    """回傳當前使用者在各章節的答對率（Chart.js 雷達圖用）"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    records = QuizRecord.objects.filter(user=request.user, is_sr=False)
+    chapter_data = {}
+    for r in records:
+        ch = r.chapter
+        if ch not in chapter_data:
+            chapter_data[ch] = {'total': 0, 'correct': 0}
+        chapter_data[ch]['total'] += r.total_questions
+        chapter_data[ch]['correct'] += r.correct_count
+
+    labels = []
+    rates = []
+    for ch in sorted(chapter_data.keys()):
+        d = chapter_data[ch]
+        rate = round(d['correct'] / d['total'] * 100, 1) if d['total'] > 0 else 0
+        labels.append(ch)
+        rates.append(rate)
+
+    return JsonResponse({
+        'success': True,
+        'labels': labels,
+        'rates': rates,
+        'total_quiz_count': records.count(),
+    })
+
+
+@require_http_methods(['GET'])
+def api_quiz_timeline(request):
+    """回傳使用者的分數趨勢（折線圖用）"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    records = QuizRecord.objects.filter(user=request.user).order_by('created_at')[:30]
+    data = []
+    for r in records:
+        data.append({
+            'id': r.id,
+            'chapter': r.chapter,
+            'score': round(r.score, 1),
+            'date': r.created_at.strftime('%m/%d %H:%M'),
+            'sr': r.is_sr,
+        })
+    return JsonResponse({'success': True, 'records': data})
+
+
+@require_http_methods(['GET'])
+def api_boss_questions(request):
+    """回傳魔王題（錯誤率 >= 70%）列表"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    questions = Question.objects.filter(total_attempt_count__gte=5)
+    boss_list = []
+    for q in questions:
+        err_rate = q.error_rate
+        if err_rate >= 70:
+            boss_list.append({
+                'id': q.id,
+                'chapter': q.chapter,
+                'number': q.question_number,
+                'text': q.question_text[:80],
+                'error_rate': err_rate,
+                'error_count': q.error_count,
+                'total_attempts': q.total_attempt_count,
+            })
+    boss_list.sort(key=lambda x: x['error_rate'], reverse=True)
+
+    return JsonResponse({
+        'success': True,
+        'boss_questions': boss_list,
+        'total_boss': len(boss_list),
+    })
+
+
+# ═══════════════════════════════════════════
+#   Feature 2: CSV 批次匯入/匯出
+# ═══════════════════════════════════════════
+
+@require_http_methods(['GET'])
+def export_questions_csv(request):
+    """匯出題庫 CSV"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['章節', '題號', '題目內容', '選項A', '選項B', '選項C', '選項D', '選項E', '正確答案', '難易度', '詳解'])
+
+    questions = Question.objects.all().order_by('chapter', 'question_number')
+    for q in questions:
+        writer.writerow([
+            q.chapter, q.question_number, q.question_text,
+            q.option_a, q.option_b, q.option_c,
+            q.option_d or '', q.option_e or '',
+            q.correct_answer, q.difficulty, q.explanation or '',
+        ])
+
+    csv_bytes = output.getvalue().encode('utf-8-sig')
+    from django.http import HttpResponse
+    response = HttpResponse(csv_bytes, content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="quiz_questions_export.csv"'
+    return response
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def import_questions_csv(request):
+    """批次匯入題庫 CSV"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    if 'csv_file' not in request.FILES:
+        return JsonResponse({'error': '請上傳 CSV 檔案'}, status=400)
+
+    import csv, io
+    csv_file = request.FILES['csv_file']
+    decoded = csv_file.read().decode('utf-8-sig')
+    reader = csv.DictReader(io.StringIO(decoded))
+
+    created = 0
+    errors = []
+    overwrite = request.POST.get('overwrite', 'false').lower() == 'true'
+
+    for row_num, row in enumerate(reader, start=2):
+        chapter = row.get('章節', '').strip()
+        qnum_str = row.get('題號', '').strip()
+
+        if not chapter or not qnum_str:
+            errors.append(f'第 {row_num} 行：章節或題號為空')
+            continue
+
+        try:
+            qnum = int(qnum_str)
+        except ValueError:
+            errors.append(f'第 {row_num} 行：題號格式錯誤')
+            continue
+
+        question_text = row.get('題目內容', '').strip()
+        if not question_text:
+            errors.append(f'第 {row_num} 行：題目內容為空')
+            continue
+
+        existing = Question.objects.filter(chapter=chapter, question_number=qnum).first()
+        if existing:
+            if not overwrite:
+                errors.append(f'第 {row_num} 行：題目 [{chapter}-{qnum}] 已存在（略過）')
+                continue
+            # 覆寫模式
+            existing.question_text = question_text
+            existing.option_a = row.get('選項A', '').strip()
+            existing.option_b = row.get('選項B', '').strip()
+            existing.option_c = row.get('選項C', '').strip()
+            existing.option_d = row.get('選項D', '').strip() or None
+            existing.option_e = row.get('選項E', '').strip() or None
+            existing.correct_answer = row.get('正確答案', 'A').strip().upper()
+            existing.difficulty = row.get('難易度', 'medium').strip()
+            existing.explanation = row.get('詳解', '').strip() or ''
+            existing.save()
+            created += 1
+        else:
+            Question.objects.create(
+                chapter=chapter,
+                question_number=qnum,
+                question_text=question_text,
+                option_a=row.get('選項A', '').strip(),
+                option_b=row.get('選項B', '').strip(),
+                option_c=row.get('選項C', '').strip(),
+                option_d=row.get('選項D', '').strip() or None,
+                option_e=row.get('選項E', '').strip() or None,
+                correct_answer=row.get('正確答案', 'A').strip().upper(),
+                difficulty=row.get('難易度', 'medium').strip(),
+                explanation=row.get('詳解', '').strip() or '',
+            )
+            created += 1
+
+    return JsonResponse({
+        'success': True,
+        'created': created,
+        'errors': errors,
+    })
+
+
+# ═══════════════════════════════════════════
+#   Feature 3: 班級與群組功能
+# ═══════════════════════════════════════════
+
+def classroom_list(request):
+    """教師的班級列表頁面"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return redirect('home')
+
+    classrooms = Classroom.objects.filter(teacher=request.user).order_by('-created_at')
+    return render(request, 'quiz_app/classroom_list.html', {
+        'classrooms': classrooms,
+    })
+
+
+def classroom_detail(request, classroom_id):
+    """班級儀表板 — 教師檢視學生表現"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return redirect('home')
+
+    try:
+        classroom = Classroom.objects.get(id=classroom_id, teacher=request.user)
+    except Classroom.DoesNotExist:
+        return redirect('classroom_list')
+
+    enrollments = classroom.enrollments.select_related('student').all()
+    students_data = []
+    for enroll in enrollments:
+        student = enroll.student
+        records = QuizRecord.objects.filter(user=student)
+        total_quiz = records.count()
+        total_correct = sum(r.correct_count for r in records)
+        total_qs = sum(r.total_questions for r in records)
+        avg_score = round(records.aggregate(avg=models.Avg('score'))['avg'] or 0, 1) if total_quiz > 0 else 0
+        students_data.append({
+            'id': student.id,
+            'nickname': student.nickname or student.username,
+            'total_quiz': total_quiz,
+            'avg_score': avg_score,
+            'total_correct': total_correct,
+            'total_questions': total_qs,
+        })
+
+    # 全班常見錯題 TOP 10
+    student_ids = [enroll.student.id for enroll in enrollments]
+    from django.db.models import Count
+    common_wrongs = (WrongAnswer.objects
+                     .filter(quiz_record__user_id__in=student_ids)
+                     .values('question_id', 'question__question_text', 'question__chapter')
+                     .annotate(wrong_count=Count('id'))
+                     .order_by('-wrong_count')[:10])
+
+    return render(request, 'quiz_app/classroom_detail.html', {
+        'classroom': classroom,
+        'students': students_data,
+        'common_wrongs': list(common_wrongs),
+    })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_create(request):
+    """教師建立班級房間"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        data = json.loads(request.body or '{}')
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+
+        if not name:
+            return JsonResponse({'error': '請輸入班級名稱'}, status=400)
+
+        # 產生唯一邀請碼
+        import string, random
+        while True:
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            if not Classroom.objects.filter(invite_code=code).exists():
+                break
+
+        classroom = Classroom.objects.create(
+            name=name,
+            teacher=request.user,
+            invite_code=code,
+            description=description,
+        )
+        return JsonResponse({'success': True, 'id': classroom.id, 'invite_code': code})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_join(request):
+    """學生透過邀請碼加入班級"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+
+    try:
+        data = json.loads(request.body or '{}')
+        code = data.get('invite_code', '').strip().upper()
+
+        if not code:
+            return JsonResponse({'error': '請輸入邀請碼'}, status=400)
+
+        try:
+            classroom = Classroom.objects.get(invite_code=code, is_active=True)
+        except Classroom.DoesNotExist:
+            return JsonResponse({'error': '邀請碼無效或班級已關閉'}, status=400)
+
+        # 檢查是否已經加入
+        if ClassroomEnrollment.objects.filter(classroom=classroom, student=request.user).exists():
+            return JsonResponse({'error': '你已加入此班級'}, status=400)
+
+        # 教師不能加入自己的班級
+        if classroom.teacher == request.user:
+            return JsonResponse({'error': '教師無需加入自己的班級'}, status=400)
+
+        ClassroomEnrollment.objects.create(classroom=classroom, student=request.user)
+
+        return JsonResponse({
+            'success': True,
+            'classroom_name': classroom.name,
+            'classroom_id': classroom.id,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+def classroom_my(request):
+    """學生的已加入班級頁面"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    enrollments = ClassroomEnrollment.objects.filter(student=request.user).select_related('classroom', 'classroom__teacher')
+    return render(request, 'quiz_app/classroom_my.html', {
+        'enrollments': enrollments,
+    })
+
+
+# ═══════════════════════════════════════════
+#   Feature 4: PDF 報表匯出
+# ═══════════════════════════════════════════
+
+def export_quiz_pdf(request):
+    """生成使用者的學習歷程 PDF 報表"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    import os
+
+    user = request.user
+
+    # 統計資料
+    records = QuizRecord.objects.filter(user=user).order_by('-created_at')
+    total_quiz = records.count()
+    total_qs = sum(r.total_questions for r in records)
+    total_correct = sum(r.correct_count for r in records)
+    avg_score = round(records.aggregate(avg=models.Avg('score'))['avg'] or 0, 1) if total_quiz > 0 else 0
+
+    # 各章節統計
+    chapter_stats = {}
+    for r in records:
+        ch = r.chapter
+        if ch not in chapter_stats:
+            chapter_stats[ch] = {'total': 0, 'correct': 0}
+        chapter_stats[ch]['total'] += r.total_questions
+        chapter_stats[ch]['correct'] += r.correct_count
+
+    chapters_data = []
+    for ch in sorted(chapter_stats.keys()):
+        d = chapter_stats[ch]
+        rate = round(d['correct'] / d['total'] * 100, 1) if d['total'] > 0 else 0
+        chapters_data.append({'name': ch, 'rate': rate, 'correct': d['correct'], 'total': d['total']})
+
+    # 錯題統計
+    wrong_qs = WrongAnswer.objects.filter(quiz_record__user=user).count()
+
+    html = render_to_string('quiz_app/pdf_report.html', {
+        'user': user,
+        'total_quiz': total_quiz,
+        'total_questions': total_qs,
+        'total_correct': total_correct,
+        'total_wrong': wrong_qs,
+        'avg_score': avg_score,
+        'chapters': chapters_data,
+        'generated_at': timezone.now().strftime('%Y-%m-%d %H:%M'),
+    })
+
+    try:
+        from weasyprint import HTML
+        pdf = HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf()
+        from django.http import HttpResponse
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="learning_report_{user.username}_{timezone.now().strftime("%Y%m%d")}.pdf"'
+        return response
+    except (ImportError, OSError):
+        # 若 weasyprint 無法使用（Windows 缺少 GTK 等），改回傳 HTML 預覽
+        return render(request, 'quiz_app/pdf_report.html', {
+            'user': user,
+            'total_quiz': total_quiz,
+            'total_questions': total_qs,
+            'total_correct': total_correct,
+            'total_wrong': wrong_qs,
+            'avg_score': avg_score,
+            'chapters': chapters_data,
+            'generated_at': timezone.now().strftime('%Y-%m-%d %H:%M'),
+        })

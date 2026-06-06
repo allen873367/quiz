@@ -2,7 +2,23 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:freefrontend.com)"
+      "WebFetch(domain:freefrontend.com)",
+      "Bash(python manage.py makemigrations quiz_app)",
+      "Bash(python manage.py migrate)",
+      "Bash(pip install *)",
+      "Bash(python manage.py runserver 0.0.0.0:8000)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/quiz-records/)",
+      "Bash(curl -s http://localhost:8000/login/)",
+      "Bash(curl -s http://localhost:8000/classroom/my/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/admin-panel/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}bytes\" http://localhost:8000/static/quiz_app/css/style.css)",
+      "Bash(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt -X POST http://localhost:8000/login/ -d \"username=admin&password=admin\" -L)",
+      "Bash(python -c ' *)",
+      "Bash(python manage.py check --deploy)",
+      "Bash(curl -s -c /tmp/cjar.txt -b /tmp/cjar.txt -X POST http://localhost:8000/login/ -d \"username=admin&password=admin123\" -L -o /dev/null -w \"%{http_code} %{redirect_url}\")",
+      "Bash(curl -s -c /tmp/cjar.txt http://localhost:8000/login/)",
+      "Bash(python -c \"from weasyprint import HTML; print\\('weasyprint OK'\\)\")"
     ]
   }
 }

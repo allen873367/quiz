@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>我的班級 — 資料結構測驗</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
+</head>
+<body>
+<div class="stars">
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+</div>
+<div class="floating-orb"></div><div class="floating-orb"></div><div class="floating-orb"></div>
+
+<div class="app">
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav" id="main-nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        {% if user.is_teacher %}
+        <a class="nav-link" href="{% url 'classroom_list' %}">班級</a>
+        {% else %}
+        <a class="nav-link active" href="{% url 'classroom_my' %}">班級</a>
+        {% endif %}
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="section-head">
+        <h3 class="section-title">🏫 我的班級</h3>
+        <span class="section-meta">{{ enrollments|length }} 個班級</span>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <button class="btn btn-primary" onclick="openJoinModal()">🔑 加入班級</button>
+      </div>
+
+      {% if enrollments %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+        {% for e in enrollments %}
+        <div class="panel">
+          <div class="panel-header">
+            <span>🏫 {{ e.classroom.name }}</span>
+          </div>
+          <div class="panel-body">
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">
+              👨‍🏫 教師：{{ e.classroom.teacher.nickname }}
+            </div>
+            <div style="font-size:12px;color:var(--text-dim);">
+              加入時間：{{ e.joined_at|date:"Y-m-d H:i" }}
+            </div>
+            {% if e.classroom.description %}
+            <div style="margin-top:8px;font-size:12px;color:var(--text-faint);">{{ e.classroom.description }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div>尚未加入任何班級</div>
+        <div style="margin-top:8px;color:var(--text-faint);">向老師索取邀請碼，點擊上方按鈕加入班級！</div>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:24px;">
+        <a class="btn" href="{% url 'home' %}">← 回首頁</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═══ Join Modal ═══ -->
+<div class="modal-overlay" id="joinModal" style="display:none;" onclick="if(event.target===this)closeJoinModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">🔑 加入班級</h3>
+      <button class="modal-close" onclick="closeJoinModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">邀請碼</label>
+        <input class="input" id="invite-code" placeholder="輸入 6 位邀請碼" style="text-transform:uppercase;letter-spacing:3px;font-size:18px;text-align:center;" maxlength="6">
+      </div>
+      <div id="join-error" class="coral" style="display:none;margin-top:8px;"></div>
+      <div id="join-success" style="display:none;padding:16px;background:var(--glass-bg);border:1px solid var(--mint-border);border-radius:var(--radius);margin-top:12px;text-align:center;">
+        <div class="mint" style="font-size:20px;font-weight:700;">🎉 成功加入班級！</div>
+      </div>
+    </div>
+    <div class="modal-footer" id="join-footer">
+      <button class="btn" onclick="closeJoinModal()">取消</button>
+      <button class="btn btn-primary" id="join-btn" onclick="joinClassroom()">加入</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Profile Modal ═══ -->
+<div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">👤 個人資料</h3>
+      <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">暱稱</label>
+        <input class="input" id="profile-nickname" placeholder="暱稱">
+      </div>
+      <div class="form-group">
+        <label class="form-label">電子郵件</label>
+        <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">目前密碼</label>
+        <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密碼</label>
+        <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
+        <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
+        <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeProfileModal()">關閉</button>
+      <button class="btn btn-primary" onclick="saveProfile()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleNav() {
+  var nav = document.getElementById('main-nav'); var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav'); var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+
+/* ── Join Classroom ── */
+function openJoinModal() {
+  document.getElementById('invite-code').value = '';
+  document.getElementById('join-error').style.display = 'none';
+  document.getElementById('join-success').style.display = 'none';
+  document.getElementById('join-footer').style.display = 'flex';
+  document.getElementById('joinModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeJoinModal() {
+  document.getElementById('joinModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function joinClassroom() {
+  var code = document.getElementById('invite-code').value.trim().toUpperCase();
+  if (!code) { alert('請輸入邀請碼'); return; }
+
+  var btn = document.getElementById('join-btn');
+  btn.textContent = '加入中...'; btn.disabled = true;
+
+  fetch('/api/classroom/join/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+    body: JSON.stringify({ invite_code: code }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (!resp.success) {
+      document.getElementById('join-error').textContent = resp.error;
+      document.getElementById('join-error').style.display = 'block';
+      btn.textContent = '加入'; btn.disabled = false;
+      return;
+    }
+    document.getElementById('join-footer').style.display = 'none';
+    document.getElementById('join-success').style.display = 'block';
+    setTimeout(function() { location.reload(); }, 2000);
+  })
+  .catch(function(err) { alert('錯誤：' + err); btn.textContent = '加入'; btn.disabled = false; });
+}
+
+/* ── Profile Modal ── */
+var profileData = { nickname: '', email: '', student_class: '' };
+function openProfileModal() {
+  var tag = document.getElementById('user-tag');
+  if (tag) {
+    profileData.nickname = tag.getAttribute('data-nickname') || '';
+    profileData.email = tag.getAttribute('data-email') || '';
+    profileData.student_class = tag.getAttribute('data-student-class') || '';
+  }
+  document.getElementById('profile-nickname').value = profileData.nickname;
+  document.getElementById('profile-email').value = profileData.email;
+  document.getElementById('profile-class').value = profileData.student_class || '未設定班級';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-delete-confirm').value = '';
+  document.getElementById('profileModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeProfileModal() {
+  document.getElementById('profileModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function saveProfile() {
+  var btn = document.querySelector('#profileModal .btn-primary');
+  btn.textContent = '儲存中...'; btn.disabled = true;
+  var formData = new FormData();
+  formData.append('nickname', document.getElementById('profile-nickname').value);
+  formData.append('email', document.getElementById('profile-email').value);
+  fetch('/api/profile/update/', { method: 'POST', headers: { 'X-CSRFToken': getCSRFToken() }, body: formData })
+    .then(function(r) { return r.json(); }).then(function(resp) {
+      if (!resp.success) { alert('儲存失敗：' + (resp.error || '')); btn.textContent = '儲存'; btn.disabled = false; return; }
+      var oldPw = document.getElementById('profile-old-pw').value;
+      var newPw = document.getElementById('profile-new-pw').value;
+      if (oldPw && newPw) {
+        var pwData = new FormData(); pwData.append('old_password', oldPw); pwData.append('new_password', newPw);
+        return fetch('/api/profile/change-password/', { method: 'POST', headers: { 'X-CSRFToken': getCSRFToken() }, body: pwData })
+          .then(function(r) { return r.json(); }).then(function(pwResp) {
+            if (!pwResp.success) { alert('密碼修改失敗：' + (pwResp.error || '')); } else { alert('個人資料與密碼已更新！'); }
+          });
+      } else { alert('個人資料已更新！'); }
+    }).catch(function(err) { alert('錯誤：' + err); }).then(function() { closeProfileModal(); location.reload(); });
+}
+function deleteMyAccount() {
+  var confirmText = document.getElementById('profile-delete-confirm').value.trim();
+  if (confirmText !== 'DELETE') { alert('請輸入 DELETE 確認刪除帳號'); return; }
+  if (!confirm('確定要永久刪除你的帳號嗎？此操作無法還原！')) return;
+  var formData = new FormData(); formData.append('confirm', 'DELETE');
+  fetch('/api/profile/delete/', { method: 'POST', headers: { 'X-CSRFToken': getCSRFToken() }, body: formData })
+    .then(function(r) { return r.json(); }).then(function(resp) { if (resp.success) { window.location.href = '/'; } else { alert('刪除失敗：' + (resp.error || '')); } });
+}
+function getCSRFToken() {
+  var name = 'csrftoken'; var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) { var c = cookies[i].trim(); if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1); }
+  return '';
+}
+</script>
+</body>
+</html>

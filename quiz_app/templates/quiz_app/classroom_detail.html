@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{ classroom.name }} — 班級儀表板</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
+</head>
+<body>
+<div class="stars">
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+</div>
+<div class="floating-orb"></div><div class="floating-orb"></div><div class="floating-orb"></div>
+
+<div class="app">
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-icon">DS</span>
+        <span>資料結構測驗</span>
+      </a>
+      <nav class="nav" id="main-nav">
+        <a class="nav-link" href="{% url 'home' %}">首頁</a>
+        <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
+        <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
+        <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        {% if user.is_teacher %}
+        <a class="nav-link active" href="{% url 'classroom_list' %}">班級</a>
+        {% else %}
+        <a class="nav-link active" href="{% url 'classroom_my' %}">班級</a>
+        {% endif %}
+        <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
+      <div class="header-meta">
+        {% if user.is_authenticated %}
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;">{{ user.nickname|default:user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- Breadcrumb -->
+      <div class="mono" style="color:var(--text-dim);font-size:13px;margin-bottom:24px;">
+        <a href="{% url 'classroom_list' %}">~/classroom</a>
+        <span> / </span>
+        <span class="cyan" style="font-weight:600;">{{ classroom.name }}</span>
+      </div>
+
+      <!-- Classroom Hero -->
+      <div class="panel" style="margin-bottom:24px;">
+        <div class="panel-header">
+          <span>🏫 {{ classroom.name }}</span>
+          <span class="tag tag-cyan">{{ classroom.enrollments.count }} 位學生</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+            <div style="flex:1;min-width:200px;">
+              {% if classroom.description %}
+              <p style="color:var(--text-muted);margin:0 0 12px;">{{ classroom.description }}</p>
+              {% endif %}
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span class="dim" style="font-size:13px;">邀請碼</span>
+                <code style="background:rgba(0,0,0,0.3);padding:6px 16px;border-radius:var(--radius-sm);font-size:20px;font-weight:700;letter-spacing:3px;color:var(--cyan);">{{ classroom.invite_code }}</code>
+                <button class="btn btn-sm btn-ghost" onclick="copyCode('{{ classroom.invite_code }}')">📋</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:20px;font-size:13px;">
+              <div><span class="dim">建立時間</span><br>{{ classroom.created_at|date:"Y-m-d" }}</div>
+              <div><span class="dim">教師</span><br>{{ classroom.teacher.nickname }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Students Performance -->
+      <div class="section-head">
+        <h3 class="section-title">👥 學生表現</h3>
+        <span class="section-meta">{{ students|length }} 位學生</span>
+      </div>
+
+      {% if students %}
+      <div style="overflow-x:auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>姓名</th>
+              <th style="text-align:center;">測驗次數</th>
+              <th style="text-align:center;">答對題數</th>
+              <th style="text-align:center;">總題數</th>
+              <th style="text-align:center;">平均分數</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in students %}
+            <tr>
+              <td>{{ s.nickname }}</td>
+              <td style="text-align:center;">{{ s.total_quiz }}</td>
+              <td style="text-align:center;">{{ s.total_correct }}</td>
+              <td style="text-align:center;">{{ s.total_questions }}</td>
+              <td style="text-align:center;">
+                <span class="{% if s.avg_score >= 80 %}mint{% elif s.avg_score >= 60 %}amber{% else %}coral{% endif %}">
+                  {{ s.avg_score }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">
+        <div>尚無學生加入此班級</div>
+        <div style="margin-top:8px;color:var(--text-faint);">分享邀請碼給學生，讓他們加入班級！</div>
+      </div>
+      {% endif %}
+
+      <!-- Common Wrong Questions -->
+      {% if common_wrongs %}
+      <div class="section-head" style="margin-top:32px;">
+        <h3 class="section-title">⚠️ 全班常見錯題 TOP 10</h3>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width:20%;">章節</th>
+              <th>題目</th>
+              <th style="width:15%;text-align:center;">錯誤次數</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for w in common_wrongs %}
+            <tr>
+              <td>{{ w.question__chapter }}</td>
+              <td>{{ w.question__question_text|truncatechars:60 }}</td>
+              <td style="text-align:center;"><span class="tag tag-coral">{{ w.wrong_count }} 次</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <div style="margin-top:24px;display:flex;gap:12px;">
+        <a class="btn" href="{% url 'classroom_list' %}">← 返回班級列表</a>
+        <a class="btn btn-ghost" href="{% url 'home' %}">回首頁</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
+      <div class="dim" style="font-size:12px">資料結構期末專題</div>
+      <div class="dim" style="font-size:12px">Django · Python 3</div>
+    </div>
+  </footer>
+</div>
+
+<script>
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav'); var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+function copyCode(code) {
+  if (navigator.clipboard) { navigator.clipboard.writeText(code).then(function() { alert('已複製邀請碼！'); }); }
+  else { alert('邀請碼：' + code); }
+}
+function getCSRFToken() {
+  var name = 'csrftoken'; var cookies = document.cookie.split(';');
+  for (var i = 0; i < cookies.length; i++) { var c = cookies[i].trim(); if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1); }
+  return '';
+}
+</script>
+</body>
+</html>

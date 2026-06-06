@@ -35,6 +35,11 @@
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        {% if user.is_authenticated and user.is_teacher %}
+        <a class="nav-link" href="{% url 'classroom_list' %}">班級</a>
+        {% elif user.is_authenticated %}
+        <a class="nav-link" href="{% url 'classroom_my' %}">班級</a>
+        {% endif %}
         <a class="nav-link active" href="{% url 'admin_panel' %}">管理</a>
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
@@ -77,6 +82,10 @@
             <span class="snav-icon">📈</span>
             <span class="snav-label">資訊面板</span>
           </a>
+          <a class="snav-item" data-tab="boss" href="#">
+            <span class="snav-icon">👹</span>
+            <span class="snav-label">魔王題</span>
+          </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -111,6 +120,8 @@
             </div>
             <div class="admin-toolbar-right">
               <button class="btn btn-sm btn-ghost" onclick="batchDelete('question')" style="color:var(--coral);border-color:var(--coral-border);" id="q-batch-del" disabled>🗑️ 刪除選取</button>
+              <a class="btn btn-sm btn-ghost" href="{% url 'export_questions_csv' %}">📥 匯出 CSV</a>
+              <button class="btn btn-sm btn-ghost" onclick="openImportCsvModal()">📤 匯入 CSV</button>
               <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新增題目</button>
             </div>
           </div>
@@ -353,11 +364,58 @@
             </div>
 
           </div>
+        </div><!-- /tab-analytics -->
+
+        <!-- ── 魔王題 Tab ── -->
+        <div class="admin-tab" id="tab-boss">
+          <div class="admin-toolbar">
+            <div class="admin-toolbar-left">
+              <h3 class="section-title" style="margin:0;">👹 魔王題統計</h3>
+              <span style="font-size:12px;color:var(--text-dim);margin-left:12px;">錯誤率 >= 70% 且答題 >= 5 次</span>
+            </div>
+            <div class="admin-toolbar-right">
+              <button class="btn btn-primary btn-sm" onclick="loadBossQuestions()">🔄 載入魔王題</button>
+            </div>
+          </div>
+          <div id="boss-content">
+            <div class="empty" style="margin-top:16px;">
+              <div>點擊「載入魔王題」查看</div>
+            </div>
+          </div>
         </div>
 
         </div><!-- /admin-main -->
     </div><!-- /admin-layout -->
   </main>
+
+<!-- ═══ CSV Import Modal ═══ -->
+<div class="modal-overlay" id="csvImportModal" style="display:none;" onclick="if(event.target===this)closeCsvImportModal()">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">📤 批次匯入題庫</h3>
+      <button class="modal-close" onclick="closeCsvImportModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        上傳 CSV 檔案，格式：章節, 題號, 題目內容, 選項A, 選項B, 選項C, 選項D, 選項E, 正確答案, 難易度, 詳解
+      </p>
+      <div class="form-group">
+        <label class="form-label">CSV 檔案</label>
+        <input class="input" id="csv-file-input" type="file" accept=".csv">
+      </div>
+      <div class="form-group">
+        <label class="form-checkbox">
+          <input type="checkbox" id="csv-overwrite"> 覆寫已存在的題目（依章節+題號）
+        </label>
+      </div>
+      <div id="csv-import-result" style="display:none;"></div>
+    </div>
+    <div class="modal-footer" id="csv-footer">
+      <button class="btn" onclick="closeCsvImportModal()">取消</button>
+      <button class="btn btn-primary" id="csv-import-btn" onclick="importCsv()">開始匯入</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ Edit Modal ═══ -->
 <div class="modal-overlay" id="editModal" style="display:none;" onclick="if(event.target===this)closeEditModal()">
@@ -1395,6 +1453,97 @@ function deleteMyAccount() {
     });
 }
 
+/* ── CSV Import ── */
+function openImportCsvModal() {
+  document.getElementById('csv-file-input').value = '';
+  document.getElementById('csv-overwrite').checked = false;
+  document.getElementById('csv-import-result').style.display = 'none';
+  document.getElementById('csv-footer').style.display = 'flex';
+  document.getElementById('csv-import-btn').textContent = '開始匯入';
+  document.getElementById('csv-import-btn').disabled = false;
+  document.getElementById('csvImportModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeCsvImportModal() {
+  document.getElementById('csvImportModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function importCsv() {
+  var fileInput = document.getElementById('csv-file-input');
+  if (!fileInput.files.length) { alert('請選擇 CSV 檔案'); return; }
+
+  var btn = document.getElementById('csv-import-btn');
+  btn.textContent = '匯入中...'; btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('csv_file', fileInput.files[0]);
+  formData.append('overwrite', document.getElementById('csv-overwrite').checked ? 'true' : 'false');
+
+  fetch('{% url "import_questions_csv" %}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    var resultDiv = document.getElementById('csv-import-result');
+    resultDiv.style.display = 'block';
+    if (resp.success) {
+      var html = '<div class="mint" style="font-weight:600;">✅ 成功匯入 ' + resp.created + ' 題</div>';
+      if (resp.errors && resp.errors.length) {
+        html += '<div style="margin-top:8px;max-height:200px;overflow-y:auto;">';
+        resp.errors.forEach(function(e) {
+          html += '<div style="font-size:12px;color:var(--coral);">⚠️ ' + e + '</div>';
+        });
+        html += '</div>';
+      }
+      resultDiv.innerHTML = html;
+      document.getElementById('csv-footer').style.display = 'none';
+      setTimeout(function() { location.reload(); }, 2000);
+    } else {
+      resultDiv.innerHTML = '<div class="coral">❌ 匯入失敗：' + (resp.error || '') + '</div>';
+      btn.textContent = '開始匯入'; btn.disabled = false;
+    }
+  })
+  .catch(function(err) { alert('錯誤：' + err); btn.textContent = '開始匯入'; btn.disabled = false; });
+}
+
+/* ── Boss Questions ── */
+function loadBossQuestions() {
+  var content = document.getElementById('boss-content');
+  content.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-dim);">載入中…</div>';
+
+  fetch('/admin-panel/api/stats/boss-questions/')
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp.success) {
+        content.innerHTML = '<div class="empty"><div>載入失敗</div></div>';
+        return;
+      }
+      if (!resp.boss_questions.length) {
+        content.innerHTML = '<div class="empty"><div>🎉 目前沒有魔王題！</div><div style="margin-top:8px;color:var(--text-faint);">所有題目的錯誤率都低於 70%</div></div>';
+        return;
+      }
+      var html = '<div style="margin-top:16px;overflow-x:auto;"><table class="admin-table"><thead><tr>' +
+        '<th>章節</th><th>題號</th><th>題目</th><th style="text-align:center;">錯誤率</th><th style="text-align:center;">錯誤次數</th><th style="text-align:center;">總答題數</th></tr></thead><tbody>';
+      resp.boss_questions.forEach(function(q) {
+        var rateColor = q.error_rate >= 80 ? 'var(--coral)' : q.error_rate >= 70 ? '#ffd93d' : 'var(--mint)';
+        html += '<tr>' +
+          '<td>' + q.chapter + '</td>' +
+          '<td>' + q.number + '</td>' +
+          '<td>' + q.text + '</td>' +
+          '<td style="text-align:center;"><span style="color:' + rateColor + ';font-weight:700;">' + q.error_rate + '%</span></td>' +
+          '<td style="text-align:center;">' + q.error_count + '</td>' +
+          '<td style="text-align:center;">' + q.total_attempts + '</td></tr>';
+      });
+      html += '</tbody></table></div>' +
+        '<div style="margin-top:12px;font-size:12px;color:var(--text-dim);">共 ' + resp.total_boss + ' 題魔王題</div>';
+      content.innerHTML = html;
+    })
+    .catch(function(err) {
+      content.innerHTML = '<div class="empty"><div>載入失敗：' + err + '</div></div>';
+    });
+}
 </script>
 
 <footer class="app-footer">

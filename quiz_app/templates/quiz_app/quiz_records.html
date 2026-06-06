@@ -6,6 +6,7 @@
   <title>測驗紀錄</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="stars">
@@ -34,6 +35,11 @@
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link active" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
+        {% if user.is_authenticated and user.is_teacher %}
+        <a class="nav-link" href="{% url 'classroom_list' %}">班級</a>
+        {% elif user.is_authenticated %}
+        <a class="nav-link" href="{% url 'classroom_my' %}">班級</a>
+        {% endif %}
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
@@ -81,6 +87,29 @@
         </select>
         <noscript><button class="btn btn-sm" type="submit">篩選</button></noscript>
       </form>
+
+      <!-- ═══ 學習分析圖表區 ═══ -->
+      <div class="panel" style="margin-bottom:24px;">
+        <div class="panel-header" onclick="toggleCharts()" style="cursor:pointer;">
+          <span>📊 學習分析</span>
+          <span class="tag tag-cyan" id="chart-toggle-label">展開</span>
+        </div>
+        <div class="panel-body" id="chart-area" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div>
+              <h4 style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">📡 各章節正確率</h4>
+              <canvas id="radarChart" height="250"></canvas>
+            </div>
+            <div>
+              <h4 style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">📈 分數趨勢</h4>
+              <canvas id="timelineChart" height="250"></canvas>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:16px;">
+            <a class="btn btn-sm btn-ghost" href="{% url 'export_quiz_pdf' %}">📄 匯出學習歷程 PDF</a>
+          </div>
+        </div>
+      </div>
 
       {% if records %}
       <div class="record-list">
@@ -280,6 +309,112 @@ function getCSRFToken() {
     if (c.indexOf(name + '=') === 0) return c.substring(name.length + 1);
   }
   return '';
+}
+
+/* ── Chart.js 學習分析 ── */
+function toggleCharts() {
+  var area = document.getElementById('chart-area');
+  var label = document.getElementById('chart-toggle-label');
+  if (area.style.display === 'none') {
+    area.style.display = 'block';
+    label.textContent = '收合';
+    loadCharts();
+  } else {
+    area.style.display = 'none';
+    label.textContent = '展開';
+  }
+}
+
+var chartsLoaded = false;
+function loadCharts() {
+  if (chartsLoaded) return;
+  chartsLoaded = true;
+
+  var chartColor = '#00d4ff';
+  var chartViolet = '#7c3aed';
+  var chartMint = '#00e676';
+  var gridColor = 'rgba(255,255,255,0.05)';
+  var labelColor = '#94a3c8';
+
+  // 雷達圖
+  fetch('/api/my-chapter-stats/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.success) return;
+      var ctx = document.getElementById('radarChart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: '正確率 (%)',
+            data: data.rates,
+            backgroundColor: 'rgba(0,212,255,0.15)',
+            borderColor: chartColor,
+            borderWidth: 2,
+            pointBackgroundColor: chartColor,
+            pointBorderColor: '#fff',
+            pointRadius: 5,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: { legend: { labels: { color: labelColor, font: { size: 11 } } } },
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 100,
+              grid: { color: gridColor },
+              angleLines: { color: gridColor },
+              pointLabels: { color: labelColor, font: { size: 11 } },
+              ticks: { color: labelColor, backdropColor: 'transparent', stepSize: 20 }
+            }
+          }
+        }
+      });
+    });
+
+  // 折線圖
+  fetch('/api/quiz-timeline/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.success || !data.records.length) return;
+      var ctx = document.getElementById('timelineChart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.records.map(function(r) { return r.date; }),
+          datasets: [{
+            label: '分數',
+            data: data.records.map(function(r) { return r.score; }),
+            borderColor: chartColor,
+            backgroundColor: 'rgba(0,212,255,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: data.records.map(function(r) {
+              return r.score >= 80 ? chartMint : r.score >= 60 ? '#ffd93d' : '#ff6b6b';
+            }),
+            pointBorderColor: '#fff',
+            pointRadius: 4,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { labels: { color: labelColor, font: { size: 11 } } },
+          },
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { color: labelColor, maxTicksLimit: 8, font: { size: 10 } } },
+            y: { min: 0, max: 100, grid: { color: gridColor }, ticks: { color: labelColor, font: { size: 10 } } }
+          }
+        }
+      });
+    });
 }
 </script>
 
