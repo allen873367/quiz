@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import timedelta
-from .models import Question, QuizRecord, WrongAnswer, User
+from .models import Question, QuizRecord, WrongAnswer, User, Classroom, ClassroomEnrollment
 import random
 import json
 from collections import OrderedDict
@@ -349,6 +349,24 @@ def submit_quiz(request):
                 if new_wrong_ids:
                     # 有錯題 → 保存第一輪完整結果，只出錯題進入間隔學習
                     request.session['sr_full_results'] = results
+
+                    # 更新第一輪的題目錯誤率統計
+                    for item in quiz_data:
+                        qid = item['id']
+                        try:
+                            q = Question.objects.get(id=qid)
+                            q.total_attempt_count = models.F('total_attempt_count') + 1
+                            q.save(update_fields=['total_attempt_count'])
+                        except Question.DoesNotExist:
+                            pass
+                    for wrong in wrong_answers:
+                        try:
+                            q = Question.objects.get(id=wrong['question_id'])
+                            q.error_count = models.F('error_count') + 1
+                            q.save(update_fields=['error_count'])
+                        except Question.DoesNotExist:
+                            pass
+
                     sr_wrong_ids = new_wrong_ids[:]
                     wrong_qs = list(Question.objects.filter(id__in=sr_wrong_ids))
                     random.shuffle(wrong_qs)
@@ -434,14 +452,26 @@ def submit_quiz(request):
             is_sr=sr_enabled,
         )
 
-        # 保存錯題記錄（使用第一輪的錯題資料）
-        if sr_enabled and sr_original_total:
-            for item in display_results:
-                if not item['is_correct']:
-                    question = Question.objects.get(question_text=item['question'])
+        # 保存錯題記錄（SR 使用第一輪的錯題資料）
+        if sr_enabled and sr_original_total and sr_full_results:
+            # 建立 question_text → Question 的查詢表，避免重複查詢
+            wrong_qs = [item for item in sr_full_results if not item['is_correct']]
+            q_ids = []
+            for item in quiz_data:
+                q_ids.append(item['id'])
+            wrong_questions = Question.objects.filter(id__in=q_ids)
+            q_map = {q.id: q for q in wrong_questions}
+            for item in wrong_qs:
+                # 從 display_results 的 question text 找對應的 question id
+                qid = None
+                for qi in quiz_data:
+                    if qi['question'] == item['question']:
+                        qid = qi['id']
+                        break
+                if qid and qid in q_map:
                     WrongAnswer.objects.create(
                         quiz_record=quiz_record,
-                        question=question,
+                        question=q_map[qid],
                         user_answer=item['user_answer'],
                     )
         else:
@@ -453,8 +483,8 @@ def submit_quiz(request):
                     user_answer=wrong['user_answer'],
                 )
 
-        # 更新題目的錯誤率統計（非 SR 輪次才計數，避免重複累計）
-        if not sr_enabled or sr_round == 0:
+        # 更新題目的錯誤率統計（SR 已在 round 0 時計數，避免重複累計）
+        if not sr_enabled:
             for item in quiz_data:
                 qid = item['id']
                 try:
@@ -478,13 +508,14 @@ def submit_quiz(request):
         request.session.pop('sr_original_total', None)
         request.session.pop('sr_first_correct', None)
         request.session.pop('sr_cumulative_time', None)
+        request.session.pop('sr_full_results', None)
 
         # 時間格式
         time_minutes = final_time // 60
         time_seconds = final_time % 60
 
         return render(request, 'quiz_app/result.html', {
-            'results': results,
+            'results': display_results,
             'correct_count': final_correct,
             'total_questions': final_total,
             'score': final_score,

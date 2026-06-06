@@ -52,8 +52,8 @@ urlpatterns = [
 
     # ─── Feature 3: 班級功能 ───
     path('classroom/', views.classroom_list, name='classroom_list'),
-    path('classroom/<int:classroom_id>/', views.classroom_detail, name='classroom_detail'),
     path('classroom/my/', views.classroom_my, name='classroom_my'),
+    path('classroom/<int:classroom_id>/', views.classroom_detail, name='classroom_detail'),
     path('api/classroom/create/', views.api_classroom_create, name='api_classroom_create'),
     path('api/classroom/join/', views.api_classroom_join, name='api_classroom_join'),
 
