@@ -9,23 +9,6 @@
   <style>
     .qcard { display: none; }
     .qcard.active { display: block; }
-    .quiz-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
-    .fb-box { display: none; margin-top: 16px; padding: 16px 20px; border-radius: var(--radius); align-items: flex-start; gap: 12px; }
-    .fb-box.show { display: flex; }
-    .fb-box.correct { background: var(--emerald-soft); border: 1px solid var(--emerald-border); }
-    .fb-box.wrong { background: var(--rose-soft); border: 1px solid var(--rose-border); }
-    .fb-icon { font-size: 20px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
-    .fb-box.correct .fb-icon { background: rgba(52,211,153,0.2); color: var(--emerald); }
-    .fb-box.wrong .fb-icon { background: rgba(251,113,133,0.2); color: var(--rose); }
-    .fb-body { flex: 1; font-size: 14px; line-height: 1.6; }
-    .fb-title { font-weight: 700; margin-bottom: 4px; }
-    .fb-box.correct .fb-title { color: var(--emerald); }
-    .fb-box.wrong .fb-title { color: var(--rose); }
-    .fb-explain { color: var(--text-muted); font-size: 13px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--glass-border); }
-    .option.disabled { pointer-events: none; opacity: 0.6; }
-    .option.disabled.selected { opacity: 1; }
-
-    /* 左側題號卡片 */
     .qnav-card {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
@@ -46,30 +29,38 @@
       border-radius: var(--radius);
       border: 1px solid var(--glass-border);
       background: var(--glass-bg);
-      color: var(--text-color);
+      color: var(--text-dim);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       font-family: inherit;
     }
-    .qnav-dot:hover { background: var(--glass-hover); border-color: var(--indigo-border); }
-    .qnav-dot.current { border-color: var(--indigo); background: var(--indigo-soft); color: var(--indigo); }
-    .qnav-dot.dot-correct { border-color: var(--emerald); background: var(--emerald-soft); color: var(--emerald); }
-    .qnav-dot.dot-wrong { border-color: var(--rose); background: var(--rose-soft); color: var(--rose); }
-
-    /* 進度條 */
+    .qnav-dot:hover { background: var(--glass-hover); border-color: rgba(0, 212, 255, 0.15); color: var(--cyan); }
+    .qnav-dot.current { border-color: var(--cyan); background: var(--cyan-soft); color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-soft); }
+    .qnav-dot.dot-correct { border-color: var(--mint-border); background: var(--mint-soft); color: var(--mint); }
+    .qnav-dot.dot-wrong { border-color: var(--coral-border); background: var(--coral-soft); color: var(--coral); }
     .quiz-progress { margin-bottom: 20px; }
     .quiz-progress .progress-bar { height: 6px; }
-
-    /* 題目卡片縮小 */
     .qcard-wrap { max-width: 680px; }
     .qcard .qstem { font-size: 16px; line-height: 1.7; margin-bottom: 20px; }
-    .option { padding: 10px 14px; }
   </style>
 </head>
 <body>
 <div class="app">
+
+  <div class="stars">
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  </div>
+
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
 
   <header class="header">
     <div class="header-inner">
@@ -87,7 +78,7 @@
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
         <span class="dim" id="sr-tag" style="display:none;">🔄 SR</span>
@@ -107,7 +98,7 @@
         </div>
         <div style="display:flex;gap:12px;align-items:center;">
           {% if sr_round %}
-          <div class="notice" style="margin:0;padding:6px 12px;font-size:12px;">
+          <div class="tag tag-cyan" style="margin:0;padding:4px 10px;font-size:12px;">
             🔄 間隔學習第 {{ sr_round }} 輪
           </div>
           {% endif %}
@@ -118,12 +109,12 @@
 
       <!-- 進度條 -->
       <div class="quiz-progress">
-        <div class="progress-bar">
+        <div class="progress-track">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
       </div>
 
-      <!-- 雙欄佈局：左側題號卡 + 右側題目卡 -->
+      <!-- 雙欄佈局 -->
       <div style="display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;">
 
         <!-- 左側：題號卡片 -->
@@ -137,14 +128,12 @@
             {% endfor %}
           </div>
 
-          <!-- 圖例 -->
           <div style="display:flex;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid var(--glass-border);font-size:11px;color:var(--text-muted);">
-            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--emerald-soft);border:1px solid var(--emerald-border);"></span> 正確</span>
-            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--rose-soft);border:1px solid var(--rose-border);"></span> 錯誤</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--mint-soft);border:1px solid var(--mint-border);"></span> 正確</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--coral-soft);border:1px solid var(--coral-border);"></span> 錯誤</span>
             <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--glass-bg);border:1px solid var(--glass-border);"></span> 未答</span>
           </div>
 
-          <!-- 統計 -->
           <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--glass-border);">
             <div style="display:flex;justify-content:space-between;font-size:12px;">
               <span class="dim">已答</span>
@@ -152,7 +141,7 @@
             </div>
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
               <span class="dim">正確</span>
-              <span class="mono" id="qnav-correct" style="color:var(--emerald);">0</span>
+              <span class="mono" id="qnav-correct" style="color:var(--mint);">0</span>
             </div>
           </div>
         </div>
@@ -196,7 +185,6 @@
           </div>
           {% endfor %}
 
-          <!-- 底部按鈕 -->
           <div class="quiz-footer">
             <button class="btn" id="prevBtn" onclick="prevQuestion()" style="visibility:hidden;">← 上一題</button>
             <div style="display:flex;gap:8px;margin-left:auto;">
@@ -220,8 +208,8 @@
     </div>
   </main>
 
-  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
-    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
       <div class="dim" style="font-size:12px">資料結構期末專題</div>
       <div class="dim" style="font-size:12px">Django · Python 3</div>
     </div>
@@ -237,7 +225,6 @@
   var seconds = 0;
   var timerInterval;
 
-  // Timer
   timerInterval = setInterval(function() {
     seconds++;
     var m = Math.floor(seconds / 60);
@@ -276,21 +263,17 @@
     var prevBtn = document.getElementById('prevBtn');
     var earlyBtn = document.getElementById('earlySubmitBtn');
 
-    // 上一題按鈕可見性
     prevBtn.style.visibility = currentQ > 0 ? 'visible' : 'hidden';
 
     if (answeredCount >= totalQs) {
-      // 全部答完：隱藏下一題，顯示提交按鈕
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'inline-flex';
       earlyBtn.style.display = 'none';
     } else if (answered[currentQ] !== undefined) {
-      // 當前已答：顯示下一題（不顯示提交，因為還有題目未答）
       nextBtn.style.display = currentQ < totalQs - 1 ? 'inline-flex' : 'none';
       submitBtn.style.display = 'none';
       earlyBtn.style.display = 'none';
     } else {
-      // 當前未答：隱藏下一題和提交
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'none';
       earlyBtn.style.display = 'none';
@@ -371,6 +354,20 @@
   }
 </script>
 
+<script>
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+</script>
 
 <!-- ═══ Profile Modal ═══ -->
 <div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
@@ -402,12 +399,12 @@
         <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
-      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
         <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
         <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
         <div style="display:flex;gap:8px;">
           <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
-          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
         </div>
       </div>
     </div>
@@ -419,23 +416,6 @@
 </div>
 
 <script>
-/* ── 漢堡選單 toggle ── */
-function toggleNav() {
-  var nav = document.getElementById('main-nav');
-  var btn = document.getElementById('nav-toggle');
-  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
-}
-document.addEventListener('click', function(e) {
-  var nav = document.getElementById('main-nav');
-  var btn = document.getElementById('nav-toggle');
-  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
-    nav.classList.remove('open'); btn.classList.remove('active');
-  }
-});
-</script>
-
-<script>
-/* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
   email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
@@ -523,7 +503,6 @@ function deleteMyAccount() {
     });
 }
 
-/* ── CSRF Token ── */
 function getCSRFToken() {
   var name = 'csrftoken';
   var cookies = document.cookie.split(';');
@@ -534,7 +513,6 @@ function getCSRFToken() {
   return '';
 }
 </script>
-
 
 </body>
 </html>

@@ -8,7 +8,10 @@
       "Bash(python manage.py makemigrations)",
       "WebFetch(domain:css-zone.com)",
       "Bash(python manage.py runserver 8000)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\mike9\\\\Desktop\\\\專案\\\\my final project - 複製\" -Depth 0)",
+      "Bash(Select-Object Name, FullName)",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "c:\\Users\\mike9\\Desktop\\專案\\my final project\\quiz_app\\static\\quiz_app"

@@ -10,6 +10,19 @@
 <body>
 <div class="app">
 
+  <div class="stars">
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  </div>
+
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+
   <header class="header">
     <div class="header-inner">
       <a class="brand" href="{% url 'home' %}">
@@ -26,7 +39,7 @@
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
       </div>
@@ -40,7 +53,7 @@
       <div class="mono" style="color:var(--text-dim);font-size:13px;margin-bottom:24px;">
         <a href="{% url 'home' %}">~/home</a>
         <span> / </span>
-        <span class="emerald">result</span>
+        <span class="cyan" style="font-weight:600;">result</span>
       </div>
 
       <!-- Result hero -->
@@ -54,12 +67,12 @@
             {% if score >= 80 %}太棒了！🎉{% elif score >= 60 %}不錯喔！繼續加油！💪{% else %}再努力一下！📚{% endif %}
           </h1>
           {% if sr_used %}
-          <div class="sr-badge">🔄 間隔學習 {{ sr_rounds }} 輪</div>
+          <div class="tag tag-cyan" style="margin-bottom:8px;">🔄 間隔學習 {{ sr_rounds }} 輪</div>
           {% endif %}
           <div class="result-stats" style="margin-top:20px;">
             <div>
               <div class="result-stat-label">答對</div>
-              <div class="result-stat-value" style="color:var(--emerald);">{{ correct_count }}</div>
+              <div class="result-stat-value" style="color:var(--mint);">{{ correct_count }}</div>
             </div>
             <div>
               <div class="result-stat-label">總題數</div>
@@ -91,26 +104,26 @@
           <div class="review-q">
             <div>{{ result.question }}</div>
             <div class="review-answers">
-              <span class="{% if result.is_correct %}you-correct{% else %}you-wrong{% endif %}">
+              <span class="{% if result.is_correct %}mint{% else %}coral{% endif %}">
                 你的答案: {{ result.user_answer|default:"（未作答）" }}
               </span>
               {% if not result.is_correct %}
               <span style="margin-left:12px;">
-                <span class="correct">正確: {{ result.correct_answer }}</span>
+                <span class="mint">正確: {{ result.correct_answer }}</span>
               </span>
               {% endif %}
             </div>
             {% if not result.is_correct and result.explanation %}
-            <div style="margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px dashed var(--glass-border);border-radius:var(--radius);font-size:12px;color:var(--text-muted);line-height:1.6;">
+            <div style="margin-top:8px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px dashed var(--glass-border);border-radius:var(--radius);font-size:12px;color:var(--text-muted);line-height:1.6;">
               {{ result.explanation }}
             </div>
             {% endif %}
           </div>
           <div>
             {% if result.is_correct %}
-            <span class="tag tag-green">✓</span>
+            <span class="tag tag-mint">✓</span>
             {% else %}
-            <span class="tag tag-red">✗</span>
+            <span class="tag tag-coral">✗</span>
             {% endif %}
           </div>
         </div>
@@ -120,15 +133,15 @@
       <!-- Actions -->
       <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
         <a class="btn btn-primary btn-lg" href="{% url 'home' %}">← 回首頁</a>
-        <a class="btn btn-lg" href="{% url 'wrong_answers' %}">📝 看錯題</a>
-        <a class="btn btn-lg" href="{% url 'leaderboard' %}">🏆 排行榜</a>
+        <a class="btn btn-lg btn-ghost" href="{% url 'wrong_answers' %}">📝 看錯題</a>
+        <a class="btn btn-lg btn-ghost" href="{% url 'leaderboard' %}">🏆 排行榜</a>
       </div>
 
     </div>
   </main>
 
-  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
-    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
       <div class="dim" style="font-size:12px">資料結構期末專題</div>
       <div class="dim" style="font-size:12px">Django · Python 3</div>
     </div>
@@ -166,12 +179,12 @@
         <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
-      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
         <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
         <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
         <div style="display:flex;gap:8px;">
           <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
-          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
         </div>
       </div>
     </div>
@@ -183,7 +196,6 @@
 </div>
 
 <script>
-/* ── 漢堡選單 toggle ── */
 function toggleNav() {
   var nav = document.getElementById('main-nav');
   var btn = document.getElementById('nav-toggle');
@@ -199,7 +211,6 @@ document.addEventListener('click', function(e) {
 </script>
 
 <script>
-/* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
   email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
@@ -287,7 +298,6 @@ function deleteMyAccount() {
     });
 }
 
-/* ── CSRF Token ── */
 function getCSRFToken() {
   var name = 'csrftoken';
   var cookies = document.cookie.split(';');
@@ -298,7 +308,6 @@ function getCSRFToken() {
   return '';
 }
 </script>
-
 
 </body>
 </html>

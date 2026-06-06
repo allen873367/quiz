@@ -8,6 +8,19 @@
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
+  <div class="stars">
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  </div>
+
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+
 <div class="app">
 
   <header class="header">
@@ -25,7 +38,7 @@
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
         {% endif %}
       </div>
     </div>
@@ -45,13 +58,13 @@
         <div class="qstem" style="margin-bottom:20px;">{{ question.question_text }}</div>
 
         <div style="display:flex;gap:16px;margin-bottom:20px;">
-          <div style="flex:1;padding:16px 20px;background:var(--rose-soft);border:1px solid var(--rose-border);border-radius:var(--radius);">
+          <div style="flex:1;padding:16px 20px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
             <div class="mono dim" style="font-size:11px;margin-bottom:4px;">你的答案</div>
-            <div style="font-size:24px;font-weight:600;color:var(--rose);">{{ user_answer }}</div>
+            <div style="font-size:24px;font-weight:600;color:var(--coral);">{{ user_answer }}</div>
           </div>
-          <div style="flex:1;padding:16px 20px;background:var(--emerald-soft);border:1px solid var(--emerald-border);border-radius:var(--radius);">
+          <div style="flex:1;padding:16px 20px;background:var(--mint-soft);border:1px solid var(--mint-border);border-radius:var(--radius);">
             <div class="mono dim" style="font-size:11px;margin-bottom:4px;">正確答案</div>
-            <div style="font-size:24px;font-weight:600;color:var(--emerald);">{{ correct_answer }}</div>
+            <div style="font-size:24px;font-weight:600;color:var(--mint);">{{ correct_answer }}</div>
           </div>
         </div>
 
@@ -61,9 +74,9 @@
             <span class="opt-letter">{{ option_key }}</span>
             <span class="opt-text">{{ option_text }}</span>
             {% if option_key == correct_answer %}
-            <span class="opt-mark" style="color:var(--emerald);">✓ 正確答案</span>
+            <span class="opt-mark" style="color:var(--mint);">✓ 正確答案</span>
             {% elif option_key == user_answer %}
-            <span class="opt-mark" style="color:var(--rose);">✗ 你的答案</span>
+            <span class="opt-mark" style="color:var(--coral);">✗ 你的答案</span>
             {% endif %}
           </div>
           {% endfor %}
@@ -77,8 +90,8 @@
     </div>
   </main>
 
-  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
-    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
       <div class="dim" style="font-size:12px">資料結構期末專題</div>
       <div class="dim" style="font-size:12px">Django · Python 3</div>
     </div>
@@ -116,12 +129,12 @@
         <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
-      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
         <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
         <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
         <div style="display:flex;gap:8px;">
           <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
-          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
         </div>
       </div>
     </div>

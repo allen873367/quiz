@@ -1,13 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(git config *)",
-      "Bash(python -c ' *)",
-      "Bash(*)",
-      "Edit(*)",
-      "PowerShell(*)"
+      "WebSearch",
+      "WebFetch(domain:freefrontend.com)"
     ]
   }
 }

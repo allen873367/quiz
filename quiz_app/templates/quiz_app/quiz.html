@@ -10,6 +10,19 @@
 <body>
 <div class="app">
 
+  <div class="stars">
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  </div>
+
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+
   <header class="header">
     <div class="header-inner">
       <a class="brand" href="{% url 'home' %}">
@@ -26,7 +39,7 @@
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% else %}
           <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
@@ -38,11 +51,10 @@
   <main>
     <div class="container">
 
-      <!-- 主卡片 -->
       <div class="panel">
         <div class="panel-header">
           <span><span class="dim">📖</span> {{ chapter }}</span>
-          <span class="tag tag-indigo">主題測驗</span>
+          <span class="tag tag-cyan">主題測驗</span>
         </div>
         <div class="panel-body">
           <div style="margin-bottom:28px;">
@@ -56,10 +68,8 @@
             {% endif %}
           </div>
 
-          <!-- 設定列：題數 + 間隔學習 + 開始按鈕 -->
           <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;padding:20px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--radius-lg);">
 
-            <!-- 題數 -->
             <div>
               <div class="panel-label" style="margin-bottom:8px;">題數</div>
               <div class="seg" id="seg-count">
@@ -72,18 +82,16 @@
               <span class="settings-help" id="time-hint" style="margin-top:6px;"></span>
             </div>
 
-            <!-- 間隔學習 -->
             <div>
               <div class="panel-label" style="margin-bottom:8px;">間隔學習</div>
               <div class="toggle on" id="toggle-sr" onclick="toggleSr()" role="switch" aria-checked="true">
                 <span class="toggle-track"></span>
                 <span class="toggle-label" id="sr-label">已開啟</span>
               </div>
-              </div>
+            </div>
 
-            <!-- 右側按鈕 -->
             <div style="margin-left:auto;display:flex;gap:10px;align-items:flex-end;">
-              <a class="btn btn-lg" href="{% url 'home' %}" style="white-space:nowrap;">← 回首頁</a>
+              <a class="btn btn-lg btn-ghost" href="{% url 'home' %}" style="white-space:nowrap;">← 回首頁</a>
               <a class="btn btn-primary btn-lg" id="btn-start"
                  href="{% url 'take_quiz' chapter %}?count={{ total }}&sr=1"
                  style="white-space:nowrap;">
@@ -93,7 +101,6 @@
 
           </div>
 
-          <!-- 底部資訊列 -->
           <div style="display:flex;gap:24px;margin-top:16px;font-size:13px;color:var(--text-muted);">
             <span>題庫總數：<strong>{{ total }}</strong></span>
             <span>將作答：<strong id="selected-count">{{ total }} 題</strong></span>
@@ -109,8 +116,8 @@
     </div>
   </main>
 
-  <footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
-    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
       <div class="dim" style="font-size:12px">資料結構期末專題</div>
       <div class="dim" style="font-size:12px">Django · Python 3</div>
     </div>
@@ -151,6 +158,20 @@
 }());
 </script>
 
+<script>
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+</script>
 
 <!-- ═══ Profile Modal ═══ -->
 <div class="modal-overlay" id="profileModal" style="display:none;" onclick="if(event.target===this)closeProfileModal()">
@@ -182,12 +203,12 @@
         <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
-      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
         <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
         <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
         <div style="display:flex;gap:8px;">
           <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
-          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
         </div>
       </div>
     </div>
@@ -199,23 +220,6 @@
 </div>
 
 <script>
-/* ── 漢堡選單 toggle ── */
-function toggleNav() {
-  var nav = document.getElementById('main-nav');
-  var btn = document.getElementById('nav-toggle');
-  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
-}
-document.addEventListener('click', function(e) {
-  var nav = document.getElementById('main-nav');
-  var btn = document.getElementById('nav-toggle');
-  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
-    nav.classList.remove('open'); btn.classList.remove('active');
-  }
-});
-</script>
-
-<script>
-/* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
   email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
@@ -303,7 +307,6 @@ function deleteMyAccount() {
     });
 }
 
-/* ── CSRF Token ── */
 function getCSRFToken() {
   var name = 'csrftoken';
   var cookies = document.cookie.split(';');
@@ -314,7 +317,6 @@ function getCSRFToken() {
   return '';
 }
 </script>
-
 
 </body>
 </html>

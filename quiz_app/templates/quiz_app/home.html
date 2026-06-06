@@ -10,19 +10,22 @@
 <body>
 <div class="app">
 
-  <!-- 流星雨效果 -->
-  <div class="meteor meteor-1"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-2"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-3"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-4"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-5"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-6"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-7"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
-  <div class="meteor meteor-8"><div class="meteor-tail"></div><div class="meteor-glow"></div><div class="meteor-head"></div></div>
+  <!-- ═══ Cosmic Background Particles ═══ -->
+  <div class="stars">
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+    <div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div>
+  </div>
 
-  <!-- 游標光暈 -->
-  <div class="cursor-glow" id="cursorGlow"></div>
+  <!-- Floating Gradient Orbs -->
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
+  <div class="floating-orb"></div>
 
+  <!-- ═══ Floating Glass Header ═══ -->
   <header class="header">
     <div class="header-inner">
       <a class="brand" href="{% url 'home' %}">
@@ -39,7 +42,7 @@
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-cyan" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% else %}
           <a href="{% url 'login' %}" class="btn btn-sm btn-ghost">登入</a>
@@ -55,7 +58,7 @@
       <!-- Messages -->
       {% if messages %}
         {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags }}" style="animation:slideDown 0.3s ease;">
+        <div class="alert alert-{{ msg.tags }}">
           <span>{{ msg }}</span>
           <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
         </div>
@@ -63,14 +66,14 @@
       {% endif %}
 
       <!-- Hero -->
-      <div class="hero">
-        <div class="hero-label">📚 資料結構期末專題</div>
+      <div class="hero reveal visible">
+        <div class="hero-label">✦ 資料結構期末專題</div>
         <h1 class="hero-title">主題測驗網站</h1>
         <p class="hero-sub">選擇章節開始測驗，系統將隨機出題並記錄你的學習歷程。</p>
       </div>
 
       <!-- Feature Intro -->
-      <div class="feature-card">
+      <div class="feature-card reveal">
         <div class="feature-grid">
           <div class="feature-item">
             <div class="feature-icon">🎯</div>
@@ -104,14 +107,14 @@
       </div>
 
       <!-- Chapter -->
-      <div class="section-head">
+      <div class="section-head reveal">
         <h3 class="section-title">📖 測驗</h3>
         <span class="section-meta">選擇模式開始作答</span>
       </div>
 
       <div class="chapter-grid">
         {% for ch in chapters %}
-        <a class="chapter-row" href="{% url 'start_quiz' ch.chapter %}">
+        <a class="chapter-row reveal" href="{% url 'start_quiz' ch.chapter %}" style="transition-delay:{{ forloop.counter0|add:"1" }}00ms;">
           <div class="chapter-icon">🌳</div>
           <div>
             <div class="chapter-name">{{ ch.chapter }}</div>
@@ -121,8 +124,8 @@
           <span class="chapter-arrow">→</span>
         </a>
         {% endfor %}
-        <a class="chapter-row" href="{% url 'random_quiz_setup' %}">
-          <div class="chapter-icon" style="background:linear-gradient(135deg,var(--amber),var(--rose));">★</div>
+        <a class="chapter-row reveal" href="{% url 'random_quiz_setup' %}" style="transition-delay:500ms;">
+          <div class="chapter-icon" style="background:linear-gradient(135deg,var(--amber),var(--coral));">★</div>
           <div>
             <div class="chapter-name">隨機挑戰</div>
             <div class="chapter-desc">跨章節混合出題 · 含間隔學習</div>
@@ -135,14 +138,13 @@
     </div>
   </main>
 
-<footer style="border-top:1px solid var(--glass-border);padding:16px 24px;background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);">
-  <!-- 將 justify-content 改為 center -->
-  <div class="container" style="display:flex;justify-content:center;align-items:center;padding:0;flex-wrap:wrap;gap:8px;">
-    <div class="dim" style="font-size:12px">
-      製作者：CBF113007鄭書懷 / CBF113018郭漢廷
+  <footer class="app-footer">
+    <div class="container footer-inner" style="padding:0;">
+      <div class="dim" style="font-size:12px">
+        製作者：CBF113007鄭書懷 / CBF113018郭漢廷
+      </div>
     </div>
-  </div> 
-</footer>
+  </footer>
 
 </div>
 
@@ -176,12 +178,12 @@
         <input class="input" id="profile-new-pw" type="password" placeholder="留空不更改">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
-      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);">
+      <div style="padding:12px;background:var(--coral-soft);border:1px solid var(--coral-border);border-radius:var(--radius);">
         <label class="form-label" style="font-size:12px;">⚠️ 刪除帳號</label>
         <p style="font-size:12px;margin:4px 0 8px;">輸入 DELETE 並點擊刪除（無法還原）</p>
         <div style="display:flex;gap:8px;">
           <input class="input" id="profile-delete-confirm" type="text" placeholder="輸入 DELETE" style="flex:1;font-size:12px;">
-          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--rose);border-color:rgba(239,68,68,0.3);white-space:nowrap;">刪除</button>
+          <button class="btn btn-sm" onclick="deleteMyAccount()" style="color:var(--coral);border-color:var(--coral-border);white-space:nowrap;">刪除</button>
         </div>
       </div>
     </div>
@@ -310,10 +312,33 @@ function getCSRFToken() {
 </script>
 
 <script>
-/* ── 游標光暈（主頁專用） ── */
+/* ── Scroll Reveal Animation ── */
 (function() {
-  var glow = document.getElementById('cursorGlow');
-  if (!glow) return;
+  var reveals = document.querySelectorAll('.reveal');
+  if (reveals.length === 0) return;
+
+  function checkReveals() {
+    for (var i = 0; i < reveals.length; i++) {
+      var rect = reveals[i].getBoundingClientRect();
+      if (rect.top < window.innerHeight - 60) {
+        reveals[i].classList.add('visible');
+      }
+    }
+  }
+
+  window.addEventListener('scroll', checkReveals, { passive: true });
+  window.addEventListener('resize', checkReveals, { passive: true });
+  checkReveals();
+}());
+</script>
+
+<script>
+/* ── Cursor Glow (optional) ── */
+(function() {
+  var glow = document.createElement('div');
+  glow.style.cssText = 'position:fixed;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.06),transparent 70%);pointer-events:none;z-index:0;transform:translate(-50%,-50%);transition:left 0.15s ease-out,top 0.15s ease-out;display:none;';
+  document.body.appendChild(glow);
+
   var timer;
   document.addEventListener('mousemove', function(e) {
     glow.style.left = e.clientX + 'px';
