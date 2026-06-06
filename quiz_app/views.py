@@ -1,9 +1,12 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import timedelta
 from .models import Question, QuizRecord, WrongAnswer, User
 import random
 import json
@@ -681,6 +684,20 @@ def admin_panel(request):
             'date': r.created_at.strftime('%m/%d %H:%M'),
         })
 
+    # 班級列表（供建立/刪除班級 Modal 使用）
+    class_list = (
+        User.objects
+        .filter(student_class__isnull=False)
+        .exclude(student_class='')
+        .values('student_class')
+        .annotate(count=models.Count('id'))
+        .order_by('student_class')
+    )
+
+    # 資訊面板下拉選單用
+    info_users = User.objects.all().order_by('username').values('id', 'username', 'nickname')
+    info_questions = Question.objects.all().order_by('chapter', 'question_number').values('id', 'chapter', 'question_number', 'question_text')
+
     return render(request, 'quiz_app/admin_panel.html', {
         'chapters': chapters_data,
         'questions': questions,
@@ -690,6 +707,9 @@ def admin_panel(request):
         'new_questions': new_questions,
         'total_users': total_users,
         'total_records': total_records,
+        'class_list': class_list,
+        'info_users': info_users,
+        'info_questions': info_questions,
     })
 
 
@@ -900,6 +920,76 @@ def api_delete_user(request, uid):
 
 @csrf_exempt
 @require_http_methods(['POST'])
+def api_create_class(request):
+    """批次建立班級帳號"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        import json as _json
+        data = request.POST.dict() if request.POST else _json.loads(request.body or '{}')
+        class_name = data.get('class_name', '').strip()
+        count = int(data.get('count', 0))
+        password = data.get('password', '')
+
+        if not class_name:
+            return JsonResponse({'error': '班級名稱不能為空'}, status=400)
+        if count < 1 or count > 100:
+            return JsonResponse({'error': '人數需在 1~100 之間'}, status=400)
+        if not password or len(password) < 4:
+            return JsonResponse({'error': '密碼至少 4 個字元'}, status=400)
+
+        created = []
+        errors = []
+        for i in range(1, count + 1):
+            username = f'{class_name}{i:02d}'
+            if User.objects.filter(username=username).exists():
+                errors.append(f'{username} 已存在')
+                continue
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                student_class=class_name,
+            )
+            created.append(username)
+
+        return JsonResponse({
+            'success': True,
+            'created': created,
+            'errors': errors,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_delete_class(request):
+    """刪除整班帳號"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        import json as _json
+        data = request.POST.dict() if request.POST else _json.loads(request.body or '{}')
+        class_name = data.get('class_name', '').strip()
+
+        if not class_name:
+            return JsonResponse({'error': '請選擇班級'}, status=400)
+
+        users = User.objects.filter(student_class=class_name)
+        count = users.count()
+        if count == 0:
+            return JsonResponse({'error': f'班級 {class_name} 沒有成員'}, status=400)
+
+        users.delete()
+        return JsonResponse({'success': True, 'deleted': count})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
 def api_delete_record(request, rid):
     """刪除測驗記錄"""
     if not request.user.is_authenticated or not request.user.is_staff:
@@ -1017,3 +1107,175 @@ def api_delete_account(request):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(['GET'])
+def api_stats_overview(request):
+    """資訊面板：概觀統計（帳號數、上線人數、答題次數、框架、章節數、自編題目）"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    try:
+        total_users = User.objects.count()
+        total_quiz_attempts = QuizRecord.objects.count()
+
+        # 更新管理員自己的 last_login，讓上線人數即時反映
+        User.objects.filter(id=request.user.id).update(last_login=timezone.now())
+        cutoff = timezone.now() - timedelta(minutes=15)
+        online_users = User.objects.filter(last_login__gte=cutoff).count()
+
+        # 各章節答題次數（豎狀圖用）
+        chapter_attempts = list(
+            QuizRecord.objects.values('chapter')
+            .annotate(count=models.Count('id'))
+            .order_by('-count')
+        )
+
+        # 新增資料：章節數、自編題目數
+        raw_chapters = list(Question.objects.values_list('chapter', flat=True))
+        total_chapters = len(set(raw_chapters))
+        total_new_questions = Question.objects.filter(is_new=True).count()
+        framework = 'Django ' + '.'.join(str(v) for v in __import__('django').VERSION[:2])
+
+        return JsonResponse({
+            'success': True,
+            'total_users': total_users,
+            'online_users': online_users,
+            'total_quiz_attempts': total_quiz_attempts,
+            'chapter_attempts': chapter_attempts,
+            'total_chapters': total_chapters,
+            'total_new_questions': total_new_questions,
+            'framework': framework,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@require_http_methods(['GET'])
+def api_user_error_stats(request):
+    """資訊面板：指定使用者的答題統計與錯誤率"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    uid = request.GET.get('user_id')
+    if not uid:
+        return JsonResponse({'error': '請指定使用者'}, status=400)
+
+    try:
+        user = User.objects.get(id=uid)
+    except User.DoesNotExist:
+        return JsonResponse({'error': '使用者不存在'}, status=404)
+
+    records = QuizRecord.objects.filter(user=user)
+    total_answered = 0
+    total_correct = 0
+    for r in records:
+        total_answered += r.total_questions
+        total_correct += r.correct_count
+
+    total_wrong = total_answered - total_correct
+    error_rate = round((total_wrong / total_answered * 100), 1) if total_answered > 0 else 0
+
+    # 各次測驗分數（豎狀圖用）
+    quiz_scores = list(
+        records.values('id', 'score', 'correct_count', 'total_questions',
+                       'chapter', 'created_at').order_by('-created_at')[:20]
+    )
+    # 整理時間格式
+    for qs in quiz_scores:
+        qs['date'] = qs['created_at'].strftime('%m/%d') if qs['created_at'] else ''
+        qs['score'] = round(qs['score'], 1)
+        del qs['created_at']
+
+    wrong_dist = (WrongAnswer.objects.filter(quiz_record__user=user)
+                  .values('question_id', 'question__question_text', 'question__chapter')
+                  .annotate(count=models.Count('id')).order_by('-count')[:30])
+
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'nickname': user.nickname or user.username,
+        },
+        'stats': {
+            'total_answered': total_answered,
+            'total_correct': total_correct,
+            'total_wrong': total_wrong,
+            'error_rate': error_rate,
+            'quiz_count': records.count(),
+        },
+        'quiz_scores': quiz_scores,
+        'wrong_distribution': list(wrong_dist),
+    })
+
+
+@require_http_methods(['GET'])
+def api_question_error_stats(request):
+    """資訊面板：指定題目的錯誤率與選項分布"""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({'error': '未授權'}, status=403)
+
+    qid = request.GET.get('question_id')
+    if not qid:
+        return JsonResponse({'error': '請指定題目'}, status=400)
+
+    try:
+        question = Question.objects.get(id=qid)
+    except Question.DoesNotExist:
+        return JsonResponse({'error': '題目不存在'}, status=404)
+
+    wrong_count = WrongAnswer.objects.filter(question=question).count()
+    wrong_records_ids = (WrongAnswer.objects.filter(question=question)
+                         .values_list('quiz_record_id', flat=True).distinct())
+
+    # 嘗試估算總答題次數：每個有這題錯題的 record 代表這題被答過
+    # 再加上可能有答對但沒在 WrongAnswer 中的 record
+    # 用所有包含相同題數+章節的 record 來估算
+    wrong_record_set = set(wrong_records_ids)
+    # 從該章節的 QuizRecord 中估計出現次數
+    same_chapter_records = QuizRecord.objects.filter(chapter=question.chapter)
+    total_approx = len(wrong_record_set)
+    # 再加上可能有答對但沒記錄的估算
+    if same_chapter_records.count() > 0:
+        # 保守估算：至少有 wrong_record_set 個，最多 same_chapter_records 個
+        total_approx = max(total_approx, len(wrong_record_set))
+
+    error_rate = round((wrong_count / max(total_approx, 1)) * 100, 1)
+
+    # 選項分布（包含正解統計）
+    option_dist = {}
+    wrong_answers = (WrongAnswer.objects.filter(question=question)
+                     .values('user_answer').annotate(count=models.Count('id')))
+    for wa in wrong_answers:
+        option_dist[wa['user_answer']] = wa['count']
+
+    # 正解次數估算 = 總嘗試次數 - 答錯次數
+    correct_approx = max(total_approx - wrong_count, 0)
+
+    options = {
+        'A': question.option_a or '',
+        'B': question.option_b or '',
+        'C': question.option_c or '',
+        'D': question.option_d or '',
+        'E': question.option_e or '',
+    }
+
+    return JsonResponse({
+        'success': True,
+        'question': {
+            'id': question.id,
+            'chapter': question.chapter,
+            'number': question.question_number,
+            'text': question.question_text,
+            'correct_answer': question.correct_answer,
+            'options': options,
+        },
+        'error_stats': {
+            'wrong_count': wrong_count,
+            'correct_approx': correct_approx,
+            'total_attempts_approx': total_approx,
+            'error_rate': error_rate,
+        },
+        'option_distribution': option_dist,
+    })

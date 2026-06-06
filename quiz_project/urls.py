@@ -32,9 +32,14 @@ urlpatterns = [
     path('admin-panel/api/user/create/', views.api_create_user, name='api_create_user'),
     path('admin-panel/api/record/<int:rid>/delete/', views.api_delete_record, name='api_delete_record'),
     path('admin-panel/api/batch-delete/', views.api_batch_delete, name='api_batch_delete'),
+    path('admin-panel/api/class/create/', views.api_create_class, name='api_create_class'),
+    path('admin-panel/api/class/delete/', views.api_delete_class, name='api_delete_class'),
     path('api/profile/update/', views.api_update_profile, name='api_update_profile'),
     path('api/profile/change-password/', views.api_change_password, name='api_change_password'),
     path('api/profile/delete/', views.api_delete_account, name='api_delete_account'),
+    path('admin-panel/api/stats/overview/', views.api_stats_overview, name='api_stats_overview'),
+    path('admin-panel/api/stats/user-errors/', views.api_user_error_stats, name='api_user_error_stats'),
+    path('admin-panel/api/stats/question-errors/', views.api_question_error_stats, name='api_question_error_stats'),
 ]
 
 if settings.DEBUG:

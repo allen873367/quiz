@@ -7,7 +7,8 @@
       "Bash(python manage.py check)",
       "Bash(python manage.py makemigrations)",
       "WebFetch(domain:css-zone.com)",
-      "Bash(python manage.py runserver 8000)"
+      "Bash(python manage.py runserver 8000)",
+      "WebFetch(domain:github.com)"
     ],
     "additionalDirectories": [
       "c:\\Users\\mike9\\Desktop\\專案\\my final project\\quiz_app\\static\\quiz_app"

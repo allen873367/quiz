@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
     nickname = models.CharField(max_length=50, blank=True, verbose_name='暱稱')
+    student_class = models.CharField(max_length=50, blank=True, null=True, verbose_name='班級')
 
     class Meta:
         verbose_name = '使用者'

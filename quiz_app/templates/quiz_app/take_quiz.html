@@ -77,16 +77,17 @@
         <span class="brand-icon">DS</span>
         <span>資料結構測驗</span>
       </a>
-      <nav class="nav">
+      <nav class="nav" id="main-nav">
         <a class="nav-link" href="{% url 'home' %}">首頁</a>
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
       </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
         <span class="dim" id="sr-tag" style="display:none;">🔄 SR</span>
@@ -201,7 +202,7 @@
             <div style="display:flex;gap:8px;margin-left:auto;">
               <button class="btn" id="nextBtn" onclick="nextQuestion()" style="display:none;">下一題 →</button>
               <button class="btn btn-primary" id="submitBtn" onclick="submitQuiz()" style="display:none;">✅ 提交答案</button>
-              <button class="btn btn-ghost" id="earlySubmitBtn" onclick="earlySubmit()" style="color:var(--amber);border-color:var(--amber-border);">📤 交卷</button>
+              <button class="btn btn-ghost" id="earlySubmitBtn" onclick="earlySubmit()" style="color:var(--amber);border-color:var(--amber-border);display:none;">📤 交卷</button>
             </div>
           </div>
         </div>
@@ -273,22 +274,26 @@
     var nextBtn = document.getElementById('nextBtn');
     var submitBtn = document.getElementById('submitBtn');
     var prevBtn = document.getElementById('prevBtn');
+    var earlyBtn = document.getElementById('earlySubmitBtn');
 
     // 上一題按鈕可見性
     prevBtn.style.visibility = currentQ > 0 ? 'visible' : 'hidden';
 
     if (answeredCount >= totalQs) {
-      // 全部答完：顯示提交按鈕
+      // 全部答完：隱藏下一題，顯示提交按鈕
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'inline-flex';
+      earlyBtn.style.display = 'none';
     } else if (answered[currentQ] !== undefined) {
-      // 當前已答：顯示下一題或提交
+      // 當前已答：顯示下一題（不顯示提交，因為還有題目未答）
       nextBtn.style.display = currentQ < totalQs - 1 ? 'inline-flex' : 'none';
-      submitBtn.style.display = currentQ >= totalQs - 1 ? 'inline-flex' : 'none';
+      submitBtn.style.display = 'none';
+      earlyBtn.style.display = 'none';
     } else {
       // 當前未答：隱藏下一題和提交
       nextBtn.style.display = 'none';
       submitBtn.style.display = 'none';
+      earlyBtn.style.display = 'none';
     }
   }
 
@@ -383,6 +388,10 @@
         <label class="form-label">電子郵件</label>
         <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
       </div>
+      <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
+      </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
       <div class="form-group">
         <label class="form-label">目前密碼</label>
@@ -410,15 +419,33 @@
 </div>
 
 <script>
+/* ── 漢堡選單 toggle ── */
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+</script>
+
+<script>
 /* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
-  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
+  student_class: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-student-class') : ''
 };
 
 function openProfileModal() {
   document.getElementById('profile-nickname').value = profileData.nickname || '';
   document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-class').value = profileData.student_class || '未設定班級';
   document.getElementById('profile-old-pw').value = '';
   document.getElementById('profile-new-pw').value = '';
   document.getElementById('profile-delete-confirm').value = '';

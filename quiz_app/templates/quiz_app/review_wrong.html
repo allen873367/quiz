@@ -16,15 +16,16 @@
         <span class="brand-icon">DS</span>
         <span>資料結構測驗</span>
       </a>
-      <nav class="nav">
+      <nav class="nav" id="main-nav">
         <a class="nav-link" href="{% url 'home' %}">首頁</a>
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link active" href="{% url 'wrong_answers' %}">複習</a>
       </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
         {% endif %}
       </div>
     </div>
@@ -34,48 +35,38 @@
     <div class="container">
 
       <div class="section-head">
-        <h3 class="section-title">review / 錯題詳情</h3>
+        <h3 class="section-title">📝 錯題詳情</h3>
       </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span class="win-dots">
-              <span class="win-dot"></span>
-              <span class="win-dot"></span>
-              <span class="win-dot"></span>
-            </span>
-            <span>{{ question.chapter }} · 第{{ question.question_number }}題</span>
-          </div>
-          <span class="tag tag-red">WRONG</span>
+      <div class="wrong-item" style="border-radius:var(--radius-lg);padding:20px 24px;">
+        <div style="margin-bottom:12px;">
+          <span style="font-size:13px;color:var(--text-dim);">{{ question.chapter }} · 第{{ question.question_number }}題</span>
         </div>
-        <div class="panel-body">
-          <div class="qstem" style="margin-bottom:20px;">{{ question.question_text }}</div>
+        <div class="qstem" style="margin-bottom:20px;">{{ question.question_text }}</div>
 
-          <div style="display:flex;gap:16px;margin-bottom:20px;">
-            <div style="flex:1;padding:16px 20px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--radius);">
-              <div class="mono dim" style="font-size:11px;margin-bottom:4px;">你的答案</div>
-              <div style="font-size:24px;font-weight:600;color:var(--red);">{{ user_answer }}</div>
-            </div>
-            <div style="flex:1;padding:16px 20px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--radius);">
-              <div class="mono dim" style="font-size:11px;margin-bottom:4px;">正確答案</div>
-              <div style="font-size:24px;font-weight:600;color:var(--green);">{{ correct_answer }}</div>
-            </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px;">
+          <div style="flex:1;padding:16px 20px;background:var(--rose-soft);border:1px solid var(--rose-border);border-radius:var(--radius);">
+            <div class="mono dim" style="font-size:11px;margin-bottom:4px;">你的答案</div>
+            <div style="font-size:24px;font-weight:600;color:var(--rose);">{{ user_answer }}</div>
           </div>
+          <div style="flex:1;padding:16px 20px;background:var(--emerald-soft);border:1px solid var(--emerald-border);border-radius:var(--radius);">
+            <div class="mono dim" style="font-size:11px;margin-bottom:4px;">正確答案</div>
+            <div style="font-size:24px;font-weight:600;color:var(--emerald);">{{ correct_answer }}</div>
+          </div>
+        </div>
 
-          <div class="options">
-            {% for option_key, option_text in options %}
-            <div class="option {% if option_key == user_answer %}wrong{% elif option_key == correct_answer %}correct{% endif %}" style="cursor:default;">
-              <span class="opt-letter">{{ option_key }}</span>
-              <span class="opt-text">{{ option_text }}</span>
-              {% if option_key == correct_answer %}
-              <span class="opt-mark" style="color:var(--green);">✓ 正確答案</span>
-              {% elif option_key == user_answer %}
-              <span class="opt-mark" style="color:var(--red);">✗ 你的答案</span>
-              {% endif %}
-            </div>
-            {% endfor %}
+        <div class="options">
+          {% for option_key, option_text in options %}
+          <div class="option {% if option_key == user_answer %}wrong{% elif option_key == correct_answer %}correct{% endif %}" style="cursor:default;">
+            <span class="opt-letter">{{ option_key }}</span>
+            <span class="opt-text">{{ option_text }}</span>
+            {% if option_key == correct_answer %}
+            <span class="opt-mark" style="color:var(--emerald);">✓ 正確答案</span>
+            {% elif option_key == user_answer %}
+            <span class="opt-mark" style="color:var(--rose);">✗ 你的答案</span>
+            {% endif %}
           </div>
+          {% endfor %}
         </div>
       </div>
 
@@ -111,6 +102,10 @@
         <label class="form-label">電子郵件</label>
         <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
       </div>
+      <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
+      </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
       <div class="form-group">
         <label class="form-label">目前密碼</label>
@@ -138,15 +133,33 @@
 </div>
 
 <script>
+/* ── 漢堡選單 toggle ── */
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+</script>
+
+<script>
 /* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
-  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
+  student_class: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-student-class') : ''
 };
 
 function openProfileModal() {
   document.getElementById('profile-nickname').value = profileData.nickname || '';
   document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-class').value = profileData.student_class || '未設定班級';
   document.getElementById('profile-old-pw').value = '';
   document.getElementById('profile-new-pw').value = '';
   document.getElementById('profile-delete-confirm').value = '';

@@ -17,16 +17,17 @@
         <span class="brand-icon">DS</span>
         <span>資料結構測驗</span>
       </a>
-      <nav class="nav">
+      <nav class="nav" id="main-nav">
         <a class="nav-link" href="{% url 'home' %}">首頁</a>
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         <a class="nav-link active" href="{% url 'admin_panel' %}">管理</a>
       </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
         {% if user.is_authenticated %}
-          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}">{{ user.nickname|default:user.username }}</span>
+          <span class="tag tag-indigo" id="user-tag" onclick="openProfileModal()" style="cursor:pointer;" data-nickname="{{ user.nickname|default:'' }}" data-email="{{ user.email|default:'' }}" data-student-class="{{ user.student_class|default:'' }}">{{ user.nickname|default:user.username }}</span>
           <a href="{% url 'logout' %}" class="btn btn-sm btn-ghost">登出</a>
         {% endif %}
       </div>
@@ -59,9 +60,9 @@
             <span class="snav-label">用戶管理</span>
             <span class="snav-badge">{{ total_users }}</span>
           </a>
-          <a class="snav-item" data-tab="info" href="#">
-            <span class="snav-icon">ℹ️</span>
-            <span class="snav-label">系統資訊</span>
+          <a class="snav-item" data-tab="analytics" href="#">
+            <span class="snav-icon">📈</span>
+            <span class="snav-label">資訊面板</span>
           </a>
         </nav>
 
@@ -202,6 +203,8 @@
               <h3 class="section-title" style="margin:0;">👥 用戶列表</h3>
             </div>
             <div class="admin-toolbar-right">
+              <button class="btn btn-sm btn-ghost" onclick="openDeleteClassModal()" style="color:var(--rose);border-color:var(--rose-border);">🗑️ 刪除班級</button>
+              <button class="btn btn-sm btn-indigo" onclick="openCreateClassModal()">🏫 建立班級</button>
               <button class="btn btn-sm btn-ghost" onclick="batchDelete('user')" style="color:var(--rose);border-color:var(--rose-border);" id="u-batch-del" disabled>🗑️ 刪除選取</button>
               <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">＋ 新增用戶</button>
             </div>
@@ -213,6 +216,7 @@
                   <th style="width:32px;"><input type="checkbox" onchange="toggleAll('u',this.checked)" title="全選"></th>
                   <th>用戶名</th>
                   <th>暱稱</th>
+                  <th>班級</th>
                   <th>Email</th>
                   <th>管理員</th>
                   <th>操作</th>
@@ -224,6 +228,7 @@
                   <td style="width:32px;text-align:center;"><input type="checkbox" class="u-cb" value="{{ u.id }}" onchange="updateBatchBtn('u')"></td>
                   <td>{{ u.username }}</td>
                   <td>{{ u.nickname|default:"—" }}</td>
+                  <td>{% if u.student_class %}<span class="tag tag-sm tag-purple">{{ u.student_class }}</span>{% else %}<span class="dim">—</span>{% endif %}</td>
                   <td class="dim">{{ u.email|default:"—" }}</td>
                   <td>{% if u.is_staff %}<span class="tag tag-sm tag-indigo">管理員</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>
                   <td style="display:flex;gap:4px;">
@@ -232,53 +237,112 @@
                   </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="dim" style="text-align:center;padding:32px;">尚無用戶</td></tr>
+                <tr><td colspan="7" class="dim" style="text-align:center;padding:32px;">尚無用戶</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- ── 系統資訊 Tab ── -->
-        <div class="admin-tab" id="tab-info">
+        <!-- ── 資訊面板 Tab ── -->
+        <div class="admin-tab" id="tab-analytics">
           <div class="admin-toolbar">
-            <h3 class="section-title" style="margin:0;">ℹ️ 系統資訊</h3>
+            <h3 class="section-title" style="margin:0;">📈 資訊面板</h3>
           </div>
-          <div class="info-grid">
-            <div class="info-card">
-              <div class="info-card-icon">📚</div>
-              <div class="info-card-label">題庫總數</div>
-              <div class="info-card-value">{{ total_questions }}</div>
+
+          <!-- 統計卡片 -->
+          <div class="analytics-cards" id="stats-cards">
+            <div class="stat-card" id="stat-users">
+              <div class="stat-card-icon">👤</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">帳號數量</div>
+                <div class="stat-card-value" id="stat-total-users">—</div>
+              </div>
             </div>
-            <div class="info-card">
-              <div class="info-card-icon">✏️</div>
-              <div class="info-card-label">自編題目</div>
-              <div class="info-card-value">{{ new_questions }}</div>
+            <div class="stat-card" id="stat-online">
+              <div class="stat-card-icon">🟢</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">目前上線</div>
+                <div class="stat-card-value" id="stat-online-users">—</div>
+              </div>
             </div>
-            <div class="info-card">
-              <div class="info-card-icon">👤</div>
-              <div class="info-card-label">註冊用戶</div>
-              <div class="info-card-value">{{ total_users }}</div>
+            <div class="stat-card" id="stat-attempts">
+              <div class="stat-card-icon">📋</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">答題次數</div>
+                <div class="stat-card-value" id="stat-total-attempts">—</div>
+              </div>
             </div>
-            <div class="info-card">
-              <div class="info-card-icon">📊</div>
-              <div class="info-card-label">測驗次數</div>
-              <div class="info-card-value">{{ total_records }}</div>
+            <div class="stat-card" id="stat-framework">
+              <div class="stat-card-icon">⚡</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">框架</div>
+                <div class="stat-card-value" id="stat-framework-val" style="font-size:18px;">—</div>
+              </div>
             </div>
-            <div class="info-card">
-              <div class="info-card-icon">🧩</div>
-              <div class="info-card-label">章節數</div>
-              <div class="info-card-value">{{ chapters|length }}</div>
+            <div class="stat-card" id="stat-chapters">
+              <div class="stat-card-icon">🧩</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">章節數</div>
+                <div class="stat-card-value" id="stat-total-chapters">—</div>
+              </div>
             </div>
-            <div class="info-card">
-              <div class="info-card-icon">⚡</div>
-              <div class="info-card-label">框架</div>
-              <div class="info-card-value" style="font-size:16px;">Django 6</div>
+            <div class="stat-card" id="stat-new-questions">
+              <div class="stat-card-icon">✏️</div>
+              <div class="stat-card-body">
+                <div class="stat-card-label">自編題目</div>
+                <div class="stat-card-value" id="stat-new-questions-val">—</div>
+              </div>
             </div>
+          </div>
+
+          <!-- 各章節答題次數豎狀圖 -->
+          <div class="chart-section">
+            <div class="chart-section-title">📊 各章節答題次數</div>
+            <div class="vbar-group" id="chapter-chart">
+              <div class="analytics-empty" style="padding:16px;">載入中…</div>
+            </div>
+          </div>
+
+          <!-- 分析區塊（左右雙欄） -->
+          <div class="analytics-grid">
+
+            <!-- 左欄：使用者錯誤率 -->
+            <div class="analytics-panel">
+              <div class="analytics-panel-header">
+                <span class="analytics-panel-title">📊 使用者錯誤率</span>
+                <select class="input input-sm analytics-select" id="user-select" onchange="loadUserStats()">
+                  <option value="">— 選擇使用者 —</option>
+                  {% for u in info_users %}
+                  <option value="{{ u.id }}">{{ u.nickname|default:u.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="analytics-panel-body" id="user-stats-area">
+                <div class="analytics-empty">請選擇使用者以檢視統計</div>
+              </div>
+            </div>
+
+            <!-- 右欄：題目錯誤率 -->
+            <div class="analytics-panel">
+              <div class="analytics-panel-header">
+                <span class="analytics-panel-title">🎯 題目錯誤率</span>
+                <select class="input input-sm analytics-select" id="question-select" onchange="loadQuestionStats()">
+                  <option value="">— 選擇題目 —</option>
+                  {% for q in info_questions %}
+                  <option value="{{ q.id }}">[{{ q.chapter|slice:'4:' }}] 第{{ q.question_number }}題 — {{ q.question_text|truncatechars:40 }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="analytics-panel-body" id="question-stats-area">
+                <div class="analytics-empty">請選擇題目以檢視統計</div>
+              </div>
+            </div>
+
           </div>
         </div>
 
-      </div><!-- /admin-main -->
+        </div><!-- /admin-main -->
     </div><!-- /admin-layout -->
   </main>
 
@@ -428,9 +492,82 @@
   </div>
 </div>
 
-</div><!-- /app -->
+<!-- ⰁⰬ Create Class Modal ⰁⰬ -->
+<div class="modal-overlay" id="createClassModal" style="display:none;" onclick="if(event.target===this)closeCreateClassModal()">
+  <div class="modal-content" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">🏫 建立班級帳號</h3>
+      <button class="modal-close" onclick="closeCreateClassModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">班級名稱 <span style="color:var(--rose);">*</span></label>
+        <input class="input" id="cc-class-name" placeholder="例如：ccs">
+        <span class="dim" style="font-size:11px;">系統將自動產生 ccs01, ccs02 … 等帳號</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">人數 <span style="color:var(--rose);">*</span></label>
+          <input class="input" id="cc-count" type="number" min="1" max="100" value="20">
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label class="form-label">預設密碼 <span style="color:var(--rose);">*</span></label>
+          <input class="input" id="cc-password" type="text" placeholder="統一密碼">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeCreateClassModal()">取消</button>
+      <button class="btn btn-primary" onclick="createClass()">💾 批次建立</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⰁⰬ Delete Class Modal ⰁⰬ -->
+<div class="modal-overlay" id="deleteClassModal" style="display:none;" onclick="if(event.target===this)closeDeleteClassModal()">
+  <div class="modal-content" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="margin:0;">🗑️ 刪除整班帳號</h3>
+      <button class="modal-close" onclick="closeDeleteClassModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">選擇班級</label>
+        <select class="input" id="dc-class-select">
+          <option value="">— 請選擇 —</option>
+          {% for c in class_list %}
+          <option value="{{ c.student_class }}">{{ c.student_class }}（{{ c.count }} 人）</option>
+          {% empty %}
+          <option value="" disabled>尚無班級</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="padding:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius);margin-top:8px;">
+        <p style="font-size:13px;margin:0;color:var(--rose);">⚠️ 刪除後該班所有帳號及相關記錄將永久移除，無法還原。</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDeleteClassModal()">取消</button>
+      <button class="btn btn-ghost" onclick="deleteClass()" style="color:var(--rose);border-color:var(--rose-border);">🗑️ 確認刪除</button>
+    </div>
+  </div>
+</div>
 
 <script>
+/* ── 漢堡選單 toggle ── */
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+
 /* ── Sidebar tab switching ── */
 document.querySelectorAll('.snav-item').forEach(function(el) {
   el.addEventListener('click', function(e) {
@@ -839,7 +976,275 @@ function deleteRecord(rid, info) {
     });
 }
 
-/* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
+/* ── 班級管理：建立班級 ── */
+var createClassModal = document.getElementById('createClassModal');
+
+function openCreateClassModal() {
+  createClassModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('cc-class-name').value = '';
+  document.getElementById('cc-count').value = '20';
+  document.getElementById('cc-password').value = '';
+  document.getElementById('cc-class-name').focus();
+}
+
+function closeCreateClassModal() {
+  createClassModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function createClass() {
+  var className = document.getElementById('cc-class-name').value.trim();
+  var count = document.getElementById('cc-count').value;
+  var password = document.getElementById('cc-password').value;
+
+  if (!className) { alert('請輸入班級名稱'); return; }
+  if (!count || parseInt(count) < 1) { alert('請輸入有效的人數'); return; }
+  if (!password || password.length < 4) { alert('密碼至少 4 個字元'); return; }
+
+  var btn = document.querySelector('#createClassModal .btn-primary');
+  btn.textContent = '建立中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('class_name', className);
+  formData.append('count', count);
+  formData.append('password', password);
+
+  fetch('/admin-panel/api/class/create/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) {
+        var msg = '成功建立 ' + (resp.created || []).length + ' 個帳號';
+        if (resp.errors && resp.errors.length) {
+          msg += '\n以下帳號已存在：' + resp.errors.join(', ');
+        }
+        alert(msg);
+        closeCreateClassModal();
+        location.reload();
+      } else {
+        alert('建立失敗：' + (resp.error || ''));
+        btn.textContent = '💾 批次建立';
+        btn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      alert('錯誤：' + err);
+      btn.textContent = '💾 批次建立';
+      btn.disabled = false;
+    });
+}
+
+/* ── 班級管理：刪除班級 ── */
+var deleteClassModal = document.getElementById('deleteClassModal');
+
+function openDeleteClassModal() {
+  deleteClassModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteClassModal() {
+  deleteClassModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function deleteClass() {
+  var sel = document.getElementById('dc-class-select');
+  var className = sel.value;
+  if (!className) { alert('請選擇要刪除的班級'); return; }
+  if (!confirm('確定要刪除 ' + className + ' 班的所有帳號嗎？此操作無法還原！')) return;
+
+  var btn = document.querySelector('#deleteClassModal .btn-ghost');
+  btn.textContent = '刪除中...';
+  btn.disabled = true;
+
+  var formData = new FormData();
+  formData.append('class_name', className);
+
+  fetch('/admin-panel/api/class/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+    body: formData,
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp.success) {
+        alert('已刪除 ' + className + ' 班共 ' + resp.deleted + ' 個帳號');
+        closeDeleteClassModal();
+        location.reload();
+      } else {
+        alert('刪除失敗：' + (resp.error || ''));
+        btn.textContent = '🗑️ 確認刪除';
+        btn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      alert('錯誤：' + err);
+      btn.textContent = '🗑️ 確認刪除';
+      btn.disabled = false;
+    });
+}
+
+/* ── 資訊面板 ── */
+function loadStats() {
+  fetch('/admin-panel/api/stats/overview/')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.success) return;
+      document.getElementById('stat-total-users').textContent = d.total_users;
+      document.getElementById('stat-online-users').textContent = d.online_users;
+      document.getElementById('stat-total-attempts').textContent = d.total_quiz_attempts;
+      document.getElementById('stat-framework-val').textContent = d.framework;
+      document.getElementById('stat-total-chapters').textContent = d.total_chapters;
+      document.getElementById('stat-new-questions-val').textContent = d.total_new_questions;
+
+      var container = document.getElementById('chapter-chart');
+      if (!container || !d.chapter_attempts || !d.chapter_attempts.length) return;
+      var maxVal = 1;
+      d.chapter_attempts.forEach(function(c) { if (c.count > maxVal) maxVal = c.count; });
+      var html = '';
+      d.chapter_attempts.forEach(function(c) {
+        var pct = Math.round((c.count / maxVal) * 100);
+        var label = (c.chapter || '').replace(/^第7章\u3000/, '');
+        html += '<div class="vbar-wrap">';
+        html += '<div class="vbar"><div class="vbar-fill" style="height:' + pct + '%"></div></div>';
+        html += '<div class="vbar-label">' + label + '</div>';
+        html += '<div class="vbar-count">' + c.count + '</div>';
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    });
+}
+
+function loadUserStats() {
+  var uid = document.getElementById('user-select').value;
+  var area = document.getElementById('user-stats-area');
+  if (!uid) {
+    area.innerHTML = '<div class="analytics-empty">\u8acb\u9078\u64c7\u4f7f\u7528\u8005\u4ee5\u6aa2\u8996\u7d71\u8a08</div>';
+    return;
+  }
+  area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u4e2d\u2026</div>';
+  fetch('/admin-panel/api/stats/user-errors/?user_id=' + uid)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.success) {
+        area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u5931\u6557</div>';
+        return;
+      }
+      var s = d.stats;
+      var html = '<div class="user-summary">';
+      html += '<div class="user-summary-row"><span class="user-summary-label">\u6e2c\u9a57\u6b21\u6578</span><span class="user-summary-value">' + s.quiz_count + ' \u6b21</span></div>';
+      html += '<div class="user-summary-row"><span class="user-summary-label">\u7e3d\u7b54\u984c\u6578</span><span class="user-summary-value">' + s.total_answered + ' \u984c</span></div>';
+      html += '<div class="user-summary-row"><span class="user-summary-label">\u7b54\u5c0d</span><span class="user-summary-value success">' + s.total_correct + ' \u984c</span></div>';
+      html += '<div class="user-summary-row"><span class="user-summary-label">\u7b54\u932f</span><span class="user-summary-value danger">' + s.total_wrong + ' \u984c</span></div>';
+      html += '<div class="user-summary-row"><span class="user-summary-label">\u932f\u8aa4\u7387</span><span class="user-summary-value danger">' + s.error_rate + '%</span></div>';
+      html += '</div>';
+
+      if (d.quiz_scores && d.quiz_scores.length) {
+        var scores = d.quiz_scores.slice().reverse();
+        var maxScore = 100;
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text-dim);margin:12px 0 8px;">\u8fd1\u671f\u6e2c\u9a57\u5206\u6578</div>';
+        html += '<div class="vbar-group">';
+        scores.forEach(function(q) {
+          var h = Math.round((q.score / maxScore) * 100);
+          var colorClass = q.score >= 80 ? 'bar-green' : (q.score >= 60 ? 'bar-amber' : 'bar-red');
+          html += '<div class="vbar-wrap" style="flex:1;min-width:24px;">';
+          html += '<div class="vbar-score">' + q.score + '</div>';
+          html += '<div class="vbar"><div class="vbar-fill ' + colorClass + '" style="height:' + h + '%"></div></div>';
+          html += '<div class="vbar-label" style="font-size:10px;">' + q.date + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      if (d.wrong_distribution && d.wrong_distribution.length) {
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text-dim);margin:12px 0 6px;padding-top:8px;border-top:1px solid var(--glass-border);">\u5e38\u932f\u984c\u76ee TOP</div>';
+        d.wrong_distribution.forEach(function(w) {
+          html += '<div class="wrong-item-analytics">';
+          html += '<span class="wrong-count">' + w.count + '</span>';
+          html += '<div><div class="wrong-text">' + (w.question__question_text || '') + '</div>';
+          html += '<div class="wrong-chapter">' + (w.question__chapter || '') + '</div></div>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div class="analytics-empty" style="padding:16px;">\u9019\u500b\u4f7f\u7528\u8005\u6c92\u6709\u932f\u984c\u8a18\u9304 \ud83c\udf89</div>';
+      }
+      area.innerHTML = html;
+    })
+    .catch(function() {
+      area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u5931\u6557</div>';
+    });
+}
+
+function loadQuestionStats() {
+  var qid = document.getElementById('question-select').value;
+  var area = document.getElementById('question-stats-area');
+  if (!qid) {
+    area.innerHTML = '<div class="analytics-empty">\u8acb\u9078\u64c7\u984c\u76ee\u4ee5\u6aa2\u8996\u7d71\u8a08</div>';
+    return;
+  }
+  area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u4e2d\u2026</div>';
+  fetch('/admin-panel/api/stats/question-errors/?question_id=' + qid)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.success) {
+        area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u5931\u6557</div>';
+        return;
+      }
+      var q = d.question;
+      var es = d.error_stats;
+      var od = d.option_distribution;
+
+      var html = '<div class="qstats-header">';
+      html += '<span class="qstats-badge info">' + (q.chapter || '') + ' \u7b2c' + q.number + '\u984c</span>';
+      html += '<span class="qstats-badge danger">\u932f ' + es.wrong_count + ' \u6b21</span>';
+      html += '<span class="qstats-badge success">\u6b63\u78ba\u7387 ' + (100 - es.error_rate) + '%</span>';
+      html += '</div>';
+
+      html += '<div class="wrong-text" style="margin-bottom:12px;padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:var(--radius);">' + (q.text || '') + '</div>';
+
+      var optKeys = ['A','B','C','D','E'];
+      var maxCount = 1;
+      optKeys.forEach(function(k) {
+        var c = od[k] || 0;
+        if (c > maxCount) maxCount = c;
+      });
+
+      html += '<div style="font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:8px;">\u9078\u9805\u5206\u4f48\uff08\u7b54\u932f\u8005\u9078\u64c7\uff09</div>';
+      html += '<div class="vbar-group" style="padding-top:4px;">';
+      optKeys.forEach(function(k) {
+        var count = od[k] || 0;
+        var pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+        var isCorrect = (k === q.correct_answer);
+        var fillClass = isCorrect ? 'bar-green' : 'bar-red';
+        html += '<div class="vbar-wrap" style="flex:1;min-width:28px;">';
+        html += '<div class="vbar-score" style="font-size:11px;">' + count + '</div>';
+        html += '<div class="vbar"><div class="vbar-fill ' + fillClass + '" style="height:' + Math.max(pct, 2) + '%"></div></div>';
+        html += '<div class="vbar-label" style="font-size:13px;font-weight:700;">' + k + '</div>';
+        if (isCorrect) html += '<div class="vbar-label" style="font-size:9px;color:var(--teal);">\u2713</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      area.innerHTML = html;
+    })
+    .catch(function() {
+      area.innerHTML = '<div class="analytics-empty">\u8f09\u5165\u5931\u6557</div>';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var analyticsTab = document.querySelector('.snav-item[data-tab="analytics"]');
+  if (analyticsTab) {
+    analyticsTab.addEventListener('click', function() {
+      loadStats();
+    });
+  }
+});
+/* ── 鍵盤支援/* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     if (modal.style.display === 'flex') closeEditModal();
@@ -866,7 +1271,11 @@ document.addEventListener('keydown', function(e) {
         <label class="form-label">電子郵件</label>
         <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
       </div>
-      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
+      <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
+      </div>
+      <hr style="border:none;border-top:1px solid var(--glass-border;--glass-border);margin:16px 0;">
       <div class="form-group">
         <label class="form-label">目前密碼</label>
         <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">
@@ -895,10 +1304,12 @@ document.addEventListener('keydown', function(e) {
 <script>
 var profileNick = document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '';
 var profileEmail = document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '';
+var profileClass = document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-student-class') : '';
 
 function openProfileModal() {
   document.getElementById('profile-nickname').value = profileNick || '';
   document.getElementById('profile-email').value = profileEmail || '';
+  document.getElementById('profile-class').value = profileClass || '未設定班級';
   document.getElementById('profile-old-pw').value = '';
   document.getElementById('profile-new-pw').value = '';
   document.getElementById('profile-delete-confirm').value = '';
@@ -970,6 +1381,7 @@ function deleteMyAccount() {
       else { alert('刪除失敗：' + (resp.error || '')); }
     });
 }
+
 </script>
 
 </body>

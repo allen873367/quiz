@@ -16,11 +16,12 @@
         <span class="brand-icon">DS</span>
         <span>資料結構測驗</span>
       </a>
-      <nav class="nav">
+      <nav class="nav" id="main-nav">
         <a class="nav-link" href="{% url 'home' %}">首頁</a>
         <a class="nav-link" href="{% url 'leaderboard' %}">排行</a>
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
       </nav>
+      <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta"></div>
     </div>
   </header>
@@ -90,6 +91,10 @@
         <label class="form-label">電子郵件</label>
         <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
       </div>
+      <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
+      </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
       <div class="form-group">
         <label class="form-label">目前密碼</label>
@@ -117,15 +122,33 @@
 </div>
 
 <script>
+/* ── 漢堡選單 toggle ── */
+function toggleNav() {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav) { nav.classList.toggle('open'); btn.classList.toggle('active'); }
+}
+document.addEventListener('click', function(e) {
+  var nav = document.getElementById('main-nav');
+  var btn = document.getElementById('nav-toggle');
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !btn.contains(e.target)) {
+    nav.classList.remove('open'); btn.classList.remove('active');
+  }
+});
+</script>
+
+<script>
 /* ── Profile Modal ── */
 var profileData = {
   nickname: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-nickname') : '',
-  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : ''
+  email: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-email') : '',
+  student_class: document.getElementById('user-tag') ? document.getElementById('user-tag').getAttribute('data-student-class') : ''
 };
 
 function openProfileModal() {
   document.getElementById('profile-nickname').value = profileData.nickname || '';
   document.getElementById('profile-email').value = profileData.email || '';
+  document.getElementById('profile-class').value = profileData.student_class || '未設定班級';
   document.getElementById('profile-old-pw').value = '';
   document.getElementById('profile-new-pw').value = '';
   document.getElementById('profile-delete-confirm').value = '';

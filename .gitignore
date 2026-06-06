@@ -45,6 +45,11 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# AI Agent / Skills
+.agents/
+.skills-lock.json
+skills-lock.json
+
 # Environment variables
 .env
 .env.local
