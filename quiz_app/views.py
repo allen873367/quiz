@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Question, QuizRecord, WrongAnswer, User
 import random
 import json
+from collections import OrderedDict
 
 
 def quiz_home(request):
@@ -105,6 +106,40 @@ def _build_shuffled_options(q):
     return options, computed_answer
 
 
+def _sample_with_groups(questions, count):
+    """取 questions 中的 count 題
+
+    所有情況：連貫題組（sequence_group）整組保留不拆散且組內按題號排序
+    - count >= 總數：回傳全部，但連貫題組內保持順序
+    - count < 總數：隨機抽，連貫題整組保留
+    """
+    # 分組：有 sequence_group 的整組一起，沒有的各自一題
+    seq_map = OrderedDict()
+    singles = []
+    for q in questions:
+        if q.sequence_group:
+            seq_map.setdefault(q.sequence_group, []).append(q)
+        else:
+            singles.append(q)
+
+    # 連貫題組內按題號排序（保持 11→12→13 順序）
+    for g in seq_map.values():
+        g.sort(key=lambda x: x.question_number)
+
+    # 建立群組列表（一個群組可能含多題）並打亂
+    groups = list(seq_map.values()) + [[q] for q in singles]
+    random.shuffle(groups)
+
+    # 整組加入，直到達到 count 為止
+    result = []
+    for g in groups:
+        result.extend(g)
+        if count is not None and len(result) >= count:
+            break
+
+    return result
+
+
 def random_quiz(request):
     """跳轉到隨機挑戰設定頁面"""
     if not request.user.is_authenticated:
@@ -171,11 +206,11 @@ def take_random_quiz(request):
 
     random.shuffle(questions)
 
+    # 根據 count 限制題數（保留連貫題組）
     if count is not None:
         try:
             count = int(count)
-            if count < len(questions):
-                questions = questions[:count]
+            questions = _sample_with_groups(questions, count)
         except (ValueError, TypeError):
             pass
 
@@ -219,12 +254,11 @@ def take_quiz(request, chapter):
     questions = list(Question.objects.filter(chapter=chapter))
     random.shuffle(questions)
 
-    # 根據 count 限制題數
+    # 根據 count 限制題數（保留連貫題組）
     if count is not None:
         try:
             count = int(count)
-            if count < len(questions):
-                questions = questions[:count]
+            questions = _sample_with_groups(questions, count)
         except (ValueError, TypeError):
             pass
 
@@ -462,11 +496,8 @@ def quiz_records(request):
 
 def leaderboard(request):
     """一般排行榜（支援章節與題數篩選）"""
-    chapter = request.GET.get('chapter')
-    q_count = request.GET.get('count')
-    # 預設值（None 表示「全部」，不篩選）
-    if q_count is None:
-        q_count = ''
+    chapter = request.GET.get('chapter', '')
+    q_count = request.GET.get('count', '')
     qs = QuizRecord.objects.filter(is_sr=False)
     if chapter:
         qs = qs.filter(chapter=chapter)

@@ -48,3 +48,10 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Generated documents (tracked locally only)
+選擇題.docx
+專題計畫書.docx
+generate_docx.py
+自編題目說明.txt
+說明.txt
