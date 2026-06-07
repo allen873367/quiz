@@ -34,7 +34,7 @@
 - **作答記錄** — 每次測驗的成績、時間、章節自動保存
 - **錯題複習** — 按測驗記錄分組的錯題列表
 - **錯題詳情** — 查看每道錯題的題目、正確答案與完整解析
-- **PDF 報表匯出** — 將學習歷程匯出為精美 PDF 報告（含各章節表現統計）
+- **PDF 報表匯出** — 將學習歷程匯出為精美 HTML 報告，可用瀏覽器「列印 → 另存 PDF」下載（含各章節表現統計）
 
 ### 👥 班級與群組功能
 - **教師角色** — 管理員可設定為教師身分，建立班級房間
@@ -179,10 +179,8 @@ my final project/
 ### 1. 安裝依賴套件
 
 ```bash
-pip install django Pillow weasyprint python-dotenv
+pip install django Pillow python-dotenv
 ```
-
-> **備註：** `weasyprint` 用於 PDF 報表生成。若安裝遇到困難，PDF 會以 HTML 預覽模式呈現，不影響其他功能。
 
 ### 2. 資料庫遷移
 
@@ -249,7 +247,8 @@ python manage.py runserver
 ### 匯出學習歷程 PDF
 1. 登入後點擊導航列「紀錄」
 2. 點擊「📊 學習分析」展開面板
-3. 點擊「📄 匯出學習歷程 PDF」按鈕下載報表
+3. 點擊「📄 學習歷程報表」開啟報表頁
+4. 點擊「🖨️ 列印／另存 PDF」按鈕，選擇「另存 PDF」即可下載
 
 ### 管理後台
 1. 訪問 `/admin-panel/` 並以管理員帳號登入
@@ -315,9 +314,9 @@ python manage.py runserver
 |------|------|
 | **Python 3.14** | 程式語言 |
 | **Django 6.0** | Web 框架 |
-| **SQLite / PostgreSQL** | 資料庫 |
+| **SQLite** | 資料庫 |
 | **Chart.js 4.4** | 前端圖表分析（雷達圖 + 折線圖） |
-| **WeasyPrint** | PDF 報表生成 |
+| **HTML Print (CSS @page)** | PDF 報表生成 — 直接渲染 HTML 頁面，用瀏覽器列印功能匯出 |
 | **CSS3 (Custom Properties)** | Cosmic Ocean 深空主題 |
 | **Pillow** | 圖片處理 |
 | **HTML5 / Vanilla JS** | 前端介面 |
