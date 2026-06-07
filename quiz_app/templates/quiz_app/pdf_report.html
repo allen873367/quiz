@@ -146,9 +146,27 @@
   .tag-red   { background: #fee2e2; color: #991b1b; }
 
   .page-break { page-break-before: always; }
+
+  .print-btn {
+    display: block;
+    width: 220px;
+    margin: 20px auto;
+    padding: 12px 24px;
+    background: #0a0a23;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .print-btn:hover { background: #1a1a4e; }
+  @media print { .print-btn { display: none; } }
 </style>
 </head>
 <body>
+
+<button class="print-btn" onclick="window.print()">🖨️ 列印／另存 PDF</button>
 
 <div class="report-header">
   <h1>📊 學習歷程報告</h1>

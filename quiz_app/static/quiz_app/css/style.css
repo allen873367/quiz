@@ -2172,7 +2172,7 @@ hr.divider {
 }
 
 .admin-table thead th {
-  background: rgba(0, 0, 0, 0.30);
+  background: #0a0a2e;
   color: var(--text-muted);
   font-weight: 600;
   padding: 10px 14px;

@@ -207,7 +207,7 @@
                   <td style="width:32px;text-align:center;"><input type="checkbox" class="r-cb" value="{{ r.id }}" onchange="updateBatchBtn('r')"></td>
                   <td>{{ r.user }}</td>
                   <td>{{ r.chapter|truncatechars:12 }}</td>
-                  <td><span class="tag tag-sm {% if r.score >= 80 %}tag-green{% elif r.score >= 60 %}tag-amber{% else %}tag-red{% endif %}">{{ r.score }}</span></td>
+                  <td><span class="tag tag-sm {% if r.score >= 80 %}tag-green{% elif r.score >= 60 %}tag-amber{% else %}tag-red{% endif %}">{{ r.score|floatformat:0 }}</span></td>
                   <td>{{ r.correct_count }}/{{ r.total }}</td>
                   <td class="dim">{{ r.time_spent }}s</td>
                   <td>{% if r.is_sr %}<span class="tag tag-sm tag-purple">間隔</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>

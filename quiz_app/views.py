@@ -1274,7 +1274,7 @@ def api_user_error_stats(request):
     # 整理時間格式
     for qs in quiz_scores:
         qs['date'] = qs['created_at'].strftime('%m/%d') if qs['created_at'] else ''
-        qs['score'] = round(qs['score'], 1)
+        qs['score'] = int(round(qs['score']))
         del qs['created_at']
 
     wrong_dist = (WrongAnswer.objects.filter(quiz_record__user=user)
@@ -1418,7 +1418,7 @@ def api_quiz_timeline(request):
         data.append({
             'id': r.id,
             'chapter': r.chapter,
-            'score': round(r.score, 1),
+            'score': int(round(r.score)),
             'date': r.created_at.strftime('%m/%d %H:%M'),
             'sr': r.is_sr,
         })
@@ -1789,13 +1789,9 @@ def api_classroom_delete(request, classroom_id):
 # ═══════════════════════════════════════════
 
 def export_quiz_pdf(request):
-    """生成使用者的學習歷程 PDF 報表"""
+    """顯示使用者的學習歷程報表（瀏覽器列印 → PDF）"""
     if not request.user.is_authenticated:
         return redirect('login')
-
-    from django.template.loader import render_to_string
-    from django.conf import settings
-    import os
 
     user = request.user
 
@@ -1824,7 +1820,7 @@ def export_quiz_pdf(request):
     # 錯題統計
     wrong_qs = WrongAnswer.objects.filter(quiz_record__user=user).count()
 
-    html = render_to_string('quiz_app/pdf_report.html', {
+    return render(request, 'quiz_app/pdf_report.html', {
         'user': user,
         'total_quiz': total_quiz,
         'total_questions': total_qs,
@@ -1834,155 +1830,3 @@ def export_quiz_pdf(request):
         'chapters': chapters_data,
         'generated_at': timezone.now().strftime('%Y-%m-%d %H:%M'),
     })
-
-    try:
-        # 使用 reportlab 直接產生 PDF（純 Python，無需外部依賴）
-        from io import BytesIO
-        from django.http import HttpResponse
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm, mm
-        from reportlab.platypus import (
-            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-            PageBreak
-        )
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-
-        pdf_file = BytesIO()
-        doc = SimpleDocTemplate(
-            pdf_file, pagesize=A4,
-            topMargin=2*cm, bottomMargin=2*cm,
-            leftMargin=1.5*cm, rightMargin=1.5*cm,
-        )
-
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle', parent=styles['Title'],
-            fontSize=24, leading=30, spaceAfter=12,
-            textColor=colors.HexColor('#0a0a23'),
-        )
-        subtitle_style = ParagraphStyle(
-            'Subtitle', parent=styles['Normal'],
-            fontSize=14, leading=18, spaceAfter=6,
-            textColor=colors.HexColor('#64748b'),
-        )
-        heading_style = ParagraphStyle(
-            'Heading2', parent=styles['Heading2'],
-            fontSize=16, leading=20, spaceAfter=10,
-            spaceBefore=20,
-            textColor=colors.HexColor('#0a0a23'),
-        )
-        normal_style = ParagraphStyle(
-            'CustomNormal', parent=styles['Normal'],
-            fontSize=11, leading=16,
-            textColor=colors.HexColor('#1a1a2e'),
-        )
-        stats_style = ParagraphStyle(
-            'StatsValue', parent=styles['Normal'],
-            fontSize=22, leading=26, spaceAfter=2,
-            textColor=colors.HexColor('#00d4ff'),
-            alignment=1,  # center
-        )
-        stats_label = ParagraphStyle(
-            'StatsLabel', parent=styles['Normal'],
-            fontSize=9, leading=12,
-            textColor=colors.HexColor('#64748b'),
-            alignment=1,
-        )
-
-        story = []
-
-        # ── Header ──
-        story.append(Paragraph('📊 學習歷程報告', title_style))
-        story.append(Paragraph('資料結構測驗 — 學習總覽', subtitle_style))
-        story.append(Spacer(1, 6))
-        user_info = f'👤 {user.nickname or user.username}'
-        if user.student_class:
-            user_info += f'&nbsp;&nbsp;🏫 {user.student_class}'
-        story.append(Paragraph(user_info, normal_style))
-        story.append(Spacer(1, 20))
-
-        # ── Stats Overview ──
-        story.append(Paragraph('📈 學習總覽', heading_style))
-        stats_data = [
-            [str(total_quiz), str(total_questions), str(total_correct), str(wrong_qs), f'{avg_score}'],
-            ['測驗次數', '總答題數', '總正確數', '總錯誤數', '平均分數'],
-        ]
-        stats_table = Table(stats_data, colWidths=[3.2*cm]*5)
-        stats_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTSIZE', (0, 0), (-1, 0), 22),
-            ('FONTSIZE', (0, 1), (-1, 1), 9),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0a0a23')),
-            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#64748b')),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-            ('TOPPADDING', (0, 1), (-1, 1), 4),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f4ff')),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-        ]))
-        story.append(stats_table)
-        story.append(Spacer(1, 24))
-
-        # ── Chapter Performance ──
-        story.append(Paragraph('📚 各章節表現', heading_style))
-
-        chapter_header = [['章節', '答對', '總題數', '正確率']]
-        chapter_rows = [chapter_header]
-        for ch in chapters_data:
-            rate_color = '#00e676' if ch['rate'] >= 80 else '#ffd93d' if ch['rate'] >= 60 else '#ff6b6b'
-            chapter_rows.append([
-                ch['name'],
-                str(ch['correct']),
-                str(ch['total']),
-                f'{ch["rate"]}%',
-            ])
-
-        chapter_table = Table(chapter_rows, colWidths=[8*cm, 2.5*cm, 2.5*cm, 3*cm])
-        chapter_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0a0a23')),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
-        ]))
-        chapter_table.hAlign = 'LEFT'
-        story.append(chapter_table)
-        story.append(Spacer(1, 24))
-
-        # ── Footer ──
-        story.append(Spacer(1, 20))
-        footer_text = f'資料結構測驗網站 · 報告產生時間：{timezone.now().strftime("%Y-%m-%d %H:%M")} · 此報告為系統自動生成'
-        story.append(Paragraph(footer_text, ParagraphStyle(
-            'Footer', parent=styles['Normal'],
-            fontSize=8, textColor=colors.HexColor('#94a3b8'),
-            alignment=1, spaceBefore=10,
-        )))
-
-        doc.build(story)
-        pdf_file.seek(0)
-        response = HttpResponse(pdf_file.read(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="learning_report_{user.username}_{timezone.now().strftime("%Y%m%d")}.pdf"'
-        return response
-    except Exception as e:
-        # 若 PDF 產生失敗（極少情況），回傳 HTML 預覽
-        return render(request, 'quiz_app/pdf_report.html', {
-            'user': user,
-            'total_quiz': total_quiz,
-            'total_questions': total_qs,
-            'total_correct': total_correct,
-            'total_wrong': wrong_qs,
-            'avg_score': avg_score,
-            'chapters': chapters_data,
-            'generated_at': timezone.now().strftime('%Y-%m-%d %H:%M'),
-        })
