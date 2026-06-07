@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>班級管理 — 資料結構測驗</title>
+  <title>課程管理 — 資料結構測驗</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
@@ -30,11 +30,13 @@
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         {% if user.is_authenticated and user.is_teacher %}
-        <a class="nav-link active" href="{% url 'classroom_list' %}">班級</a>
+        <a class="nav-link active" href="{% url 'classroom_list' %}">課程</a>
         {% elif user.is_authenticated %}
-        <a class="nav-link" href="{% url 'classroom_my' %}">班級</a>
+        <a class="nav-link" href="{% url 'classroom_my' %}">課程</a>
         {% endif %}
+        {% if user.is_staff %}
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+        {% endif %}
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
@@ -50,12 +52,12 @@
     <div class="container">
 
       <div class="section-head">
-        <h3 class="section-title">📚 班級管理</h3>
-        <span class="section-meta">{{ classrooms|length }} 個班級</span>
+        <h3 class="section-title">📚 課程管理</h3>
+        <span class="section-meta">{{ classrooms|length }} 個課程</span>
       </div>
 
       <div style="margin-bottom:20px;">
-        <button class="btn btn-primary" onclick="openCreateModal()">＋ 建立班級</button>
+        <button class="btn btn-primary" onclick="openCreateModal()">＋ 建立課程</button>
       </div>
 
       {% if classrooms %}
@@ -68,11 +70,13 @@
           </div>
           <div class="panel-body">
             {% if c.description %}<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">{{ c.description }}</p>{% endif %}
+            {% if c.is_active %}
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
               <span class="dim" style="font-size:12px;">邀請碼</span>
               <code style="background:var(--glass-bg);padding:4px 12px;border-radius:var(--radius-sm);font-size:14px;letter-spacing:2px;color:var(--cyan);">{{ c.invite_code }}</code>
               <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();copyCode('{{ c.invite_code }}')" style="font-size:11px;">複製</button>
             </div>
+            {% endif %}
             <div style="display:flex;gap:16px;font-size:12px;color:var(--text-dim);">
               <span>👨‍🏫 {{ c.teacher.nickname }}</span>
               <span>📅 {{ c.created_at|date:"Y-m-d" }}</span>
@@ -84,8 +88,8 @@
       </div>
       {% else %}
       <div class="empty">
-        <div>尚未建立任何班級</div>
-        <div style="margin-top:8px;color:var(--text-faint);">點擊上方按鈕建立你的第一個班級！</div>
+        <div>尚未建立任何課程</div>
+        <div style="margin-top:8px;color:var(--text-faint);">點擊上方按鈕建立你的第一個課程！</div>
       </div>
       {% endif %}
 
@@ -107,20 +111,20 @@
 <div class="modal-overlay" id="createModal" style="display:none;" onclick="if(event.target===this)closeCreateModal()">
   <div class="modal-content" style="max-width:460px;">
     <div class="modal-header">
-      <h3 style="margin:0;">🏫 建立班級</h3>
+      <h3 style="margin:0;">🏫 建立課程</h3>
       <button class="modal-close" onclick="closeCreateModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label">班級名稱</label>
+        <label class="form-label">課程名稱</label>
         <input class="input" id="class-name" placeholder="例如：資工二甲" required>
       </div>
       <div class="form-group">
         <label class="form-label">描述（選填）</label>
-        <textarea class="input" id="class-desc" placeholder="班級描述..." style="min-height:80px;resize:vertical;"></textarea>
+        <textarea class="input" id="class-desc" placeholder="課程描述..." style="min-height:80px;resize:vertical;"></textarea>
       </div>
       <div id="create-result" style="display:none;padding:16px;background:var(--glass-bg);border:1px solid var(--mint-border);border-radius:var(--radius);margin-top:12px;text-align:center;">
-        <div class="mint" style="font-size:24px;font-weight:700;margin-bottom:8px;">🎉 班級建立成功！</div>
+        <div class="mint" style="font-size:24px;font-weight:700;margin-bottom:8px;">🎉 課程建立成功！</div>
         <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">邀請碼</div>
         <div style="font-size:32px;font-weight:800;letter-spacing:6px;color:var(--cyan);" id="invite-code-display"></div>
         <button class="btn btn-sm" onclick="copyCode(document.getElementById('invite-code-display').textContent)" style="margin-top:12px;">📋 複製邀請碼</button>
@@ -150,7 +154,7 @@
         <input class="input" id="profile-email" type="email" placeholder="example@mail.com">
       </div>
       <div class="form-group">
-        <label class="form-label">班級</label>
+        <label class="form-label">課程</label>
         <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
       </div>
       <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
@@ -209,7 +213,7 @@ function closeCreateModal() {
 function createClassroom() {
   var name = document.getElementById('class-name').value.trim();
   var desc = document.getElementById('class-desc').value.trim();
-  if (!name) { alert('請輸入班級名稱'); return; }
+  if (!name) { alert('請輸入課程名稱'); return; }
 
   var btn = document.getElementById('create-btn');
   btn.textContent = '建立中...';
@@ -252,7 +256,7 @@ function openProfileModal() {
   }
   document.getElementById('profile-nickname').value = profileData.nickname;
   document.getElementById('profile-email').value = profileData.email;
-  document.getElementById('profile-class').value = profileData.student_class || '未設定班級';
+  document.getElementById('profile-class').value = profileData.student_class || '未設定課程';
   document.getElementById('profile-old-pw').value = '';
   document.getElementById('profile-new-pw').value = '';
   document.getElementById('profile-delete-confirm').value = '';

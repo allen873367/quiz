@@ -36,11 +36,13 @@
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         {% if user.is_authenticated and user.is_teacher %}
-        <a class="nav-link" href="{% url 'classroom_list' %}">班級</a>
+        <a class="nav-link" href="{% url 'classroom_list' %}">課程</a>
         {% elif user.is_authenticated %}
-        <a class="nav-link" href="{% url 'classroom_my' %}">班級</a>
+        <a class="nav-link" href="{% url 'classroom_my' %}">課程</a>
         {% endif %}
+        {% if user.is_staff %}
         <a class="nav-link active" href="{% url 'admin_panel' %}">管理</a>
+        {% endif %}
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
@@ -225,6 +227,20 @@
           <div class="admin-toolbar">
             <div class="admin-toolbar-left">
               <h3 class="section-title" style="margin:0;">👥 用戶列表</h3>
+              <div class="filter-group" style="margin-left:16px;">
+                <select class="input input-sm" id="role-filter" onchange="filterUsers()" style="width:110px;">
+                  <option value="">全部身分</option>
+                  <option value="admin">管理員</option>
+                  <option value="teacher">老師</option>
+                  <option value="student">學生</option>
+                </select>
+                <select class="input input-sm" id="class-filter" onchange="filterUsers()" style="width:130px;">
+                  <option value="">全部班級</option>
+                  {% for c in class_list %}
+                  <option value="{{ c.student_class }}">{{ c.student_class }}（{{ c.count }}）</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
             <div class="admin-toolbar-right">
               <button class="btn btn-sm btn-ghost" onclick="openDeleteClassModal()" style="color:var(--coral);border-color:var(--coral-border);">🗑️ 刪除班級</button>
@@ -242,21 +258,25 @@
                   <th>暱稱</th>
                   <th>班級</th>
                   <th>Email</th>
-                  <th>管理員</th>
+                  <th>身分組</th>
                   <th>操作</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="user-tbody">
                 {% for u in users %}
-                <tr>
+                <tr data-role="{% if u.is_superuser %}admin{% elif u.is_teacher %}teacher{% else %}student{% endif %}" data-class="{{ u.student_class|default:'' }}">
                   <td style="width:32px;text-align:center;"><input type="checkbox" class="u-cb" value="{{ u.id }}" onchange="updateBatchBtn('u')"></td>
                   <td>{{ u.username }}</td>
                   <td>{{ u.nickname|default:"—" }}</td>
                   <td>{% if u.student_class %}<span class="tag tag-sm tag-purple">{{ u.student_class }}</span>{% else %}<span class="dim">—</span>{% endif %}</td>
                   <td class="dim">{{ u.email|default:"—" }}</td>
-                  <td>{% if u.is_staff %}<span class="tag tag-sm tag-indigo">管理員</span>{% else %}<span class="tag tag-sm tag-gray">一般</span>{% endif %}</td>
+                  <td>
+                    {% if u.is_superuser %}<span class="tag tag-sm tag-indigo">管理員</span>
+                    {% elif u.is_teacher %}<span class="tag tag-sm tag-cyan">老師</span>
+                    {% else %}<span class="tag tag-sm tag-gray">學生</span>{% endif %}
+                  </td>
                   <td style="display:flex;gap:4px;">
-                    <button class="btn btn-sm btn-ghost" onclick="openUserEdit({{ u.id }},'{{ u.username|escapejs }}','{{ u.nickname|escapejs }}','{{ u.email|escapejs }}',{{ u.is_staff|lower }})" style="padding:2px 10px;font-size:11px;">編輯</button>
+                    <button class="btn btn-sm btn-ghost" onclick="openUserEdit({{ u.id }},'{{ u.username|escapejs }}','{{ u.nickname|escapejs }}','{{ u.email|escapejs }}','{% if u.is_superuser %}admin{% elif u.is_teacher %}teacher{% else %}student{% endif %}','{{ u.student_class|default:''|escapejs }}')" style="padding:2px 10px;font-size:11px;">編輯</button>
                     <button class="btn btn-sm btn-ghost" onclick="deleteUser({{ u.id }},'{{ u.username|escapejs }}')" style="padding:2px 10px;font-size:11px;color:var(--coral);">刪除</button>
                   </td>
                 </tr>
@@ -516,12 +536,20 @@
         <input class="input" id="user-edit-email" type="email" placeholder="example@mail.com">
       </div>
       <div class="form-group">
+        <label class="form-label">班級</label>
+        <input class="input" id="user-edit-class" placeholder="例如：資工二甲">
+      </div>
+      <div class="form-group">
+        <label class="form-label">身分組</label>
+        <select class="input" id="user-edit-role">
+          <option value="student">學生</option>
+          <option value="teacher">老師</option>
+          <option value="admin">管理員</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">新密碼（留空不變）</label>
         <input class="input" id="user-edit-password" type="password" placeholder="留空則不修改密碼">
-      </div>
-      <div class="form-group" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
-        <input type="checkbox" id="user-edit-staff" style="width:18px;height:18px;accent-color:var(--cyan);">
-        <label for="user-edit-staff" style="font-size:14px;cursor:pointer;">管理員權限</label>
       </div>
     </div>
     <div class="modal-footer">
@@ -551,9 +579,13 @@
         <label class="form-label">電子郵件</label>
         <input class="input" id="user-add-email" type="email" placeholder="example@mail.com">
       </div>
-      <div class="form-group" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
-        <input type="checkbox" id="user-add-staff" style="width:18px;height:18px;accent-color:var(--cyan);">
-        <label for="user-add-staff" style="font-size:14px;cursor:pointer;">管理員權限</label>
+      <div class="form-group">
+        <label class="form-label">身分組</label>
+        <select class="input" id="user-add-role">
+          <option value="student">學生</option>
+          <option value="teacher">老師</option>
+          <option value="admin">管理員</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -639,17 +671,27 @@ document.addEventListener('click', function(e) {
   }
 });
 
-/* ── Sidebar tab switching ── */
+/* ── Sidebar tab switching（記住當前分頁，reload 後自動跳回） ── */
+function switchTab(tab) {
+  document.querySelectorAll('.snav-item').forEach(function(x) { x.classList.remove('active'); });
+  document.querySelector('.snav-item[data-tab="' + tab + '"]').classList.add('active');
+  document.querySelectorAll('.admin-tab').forEach(function(x) { x.classList.remove('active'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+  localStorage.setItem('admin_tab', tab);
+}
 document.querySelectorAll('.snav-item').forEach(function(el) {
   el.addEventListener('click', function(e) {
     e.preventDefault();
-    document.querySelectorAll('.snav-item').forEach(function(x) { x.classList.remove('active'); });
-    this.classList.add('active');
-    var tab = this.getAttribute('data-tab');
-    document.querySelectorAll('.admin-tab').forEach(function(x) { x.classList.remove('active'); });
-    document.getElementById('tab-' + tab).classList.add('active');
+    switchTab(this.getAttribute('data-tab'));
   });
 });
+/* 頁面載入時恢復上一次的分頁 */
+(function() {
+  var saved = localStorage.getItem('admin_tab');
+  if (saved && document.getElementById('tab-' + saved)) {
+    switchTab(saved);
+  }
+})();
 
 /* ── Question filtering ── */
 function filterQuestions() {
@@ -863,14 +905,15 @@ function getCSRFToken() {
 /* ── 用戶管理：編輯（Modal）/ 刪除 ── */
 var userEditId = null;
 
-function openUserEdit(uid, username, nickname, email, isStaff) {
+function openUserEdit(uid, username, nickname, email, role, studentClass) {
   userEditId = uid;
   document.getElementById('user-edit-title').textContent = '👤 編輯用戶 — ' + username;
   document.getElementById('user-edit-username').value = username;
   document.getElementById('user-edit-nickname').value = nickname || '';
   document.getElementById('user-edit-email').value = email || '';
+  document.getElementById('user-edit-class').value = studentClass || '';
   document.getElementById('user-edit-password').value = '';
-  document.getElementById('user-edit-staff').checked = isStaff;
+  document.getElementById('user-edit-role').value = role || 'student';
   document.getElementById('userEditModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
@@ -890,7 +933,8 @@ function saveUserEdit() {
   var formData = new FormData();
   formData.append('nickname', document.getElementById('user-edit-nickname').value);
   formData.append('email', document.getElementById('user-edit-email').value);
-  formData.append('is_staff', document.getElementById('user-edit-staff').checked ? 'true' : 'false');
+  formData.append('student_class', document.getElementById('user-edit-class').value);
+  formData.append('role', document.getElementById('user-edit-role').value);
   var pw = document.getElementById('user-edit-password').value;
   if (pw) formData.append('password', pw);
 
@@ -935,7 +979,7 @@ function openAddUserModal() {
   document.getElementById('user-add-username').value = '';
   document.getElementById('user-add-password').value = '';
   document.getElementById('user-add-email').value = '';
-  document.getElementById('user-add-staff').checked = false;
+  document.getElementById('user-add-role').value = 'student';
   document.getElementById('user-add-username').focus();
 }
 
@@ -948,7 +992,7 @@ function saveNewUser() {
   var username = document.getElementById('user-add-username').value.trim();
   var password = document.getElementById('user-add-password').value;
   var email = document.getElementById('user-add-email').value.trim();
-  var isStaff = document.getElementById('user-add-staff').checked;
+  var role = document.getElementById('user-add-role').value;
 
   if (!username) { alert('請輸入帳號'); return; }
   if (!password) { alert('請輸入密碼'); return; }
@@ -961,7 +1005,7 @@ function saveNewUser() {
   formData.append('username', username);
   formData.append('password', password);
   formData.append('email', email);
-  formData.append('is_staff', isStaff ? 'true' : 'false');
+  formData.append('role', role);
 
   fetch('/admin-panel/api/user/create/', {
     method: 'POST',
@@ -986,10 +1030,27 @@ function saveNewUser() {
     });
 }
 
+/* ── 用戶篩選 ── */
+function filterUsers() {
+  var role = document.getElementById('role-filter').value;
+  var cls = document.getElementById('class-filter').value;
+  var rows = document.querySelectorAll('#user-tbody tr');
+  rows.forEach(function(row) {
+    var match = true;
+    if (role && row.getAttribute('data-role') !== role) match = false;
+    if (cls && row.getAttribute('data-class') !== cls) match = false;
+    row.style.display = match ? '' : 'none';
+  });
+}
+
 /* ── 批次選取與刪除 ── */
 function toggleAll(prefix, checked) {
+  // 只選取可見行（未被篩選隱藏）的 checkbox
   document.querySelectorAll('.' + prefix + '-cb').forEach(function(cb) {
-    cb.checked = checked;
+    var row = cb.closest('tr');
+    if (!row || row.style.display !== 'none') {
+      cb.checked = checked;
+    }
   });
   updateBatchBtn(prefix);
 }
@@ -997,7 +1058,10 @@ function toggleAll(prefix, checked) {
 function updateBatchBtn(prefix) {
   var ids = [];
   document.querySelectorAll('.' + prefix + '-cb:checked').forEach(function(cb) {
-    ids.push(cb.value);
+    var row = cb.closest('tr');
+    if (!row || row.style.display !== 'none') {
+      ids.push(cb.value);
+    }
   });
   var btn = document.getElementById(prefix + '-batch-del');
   if (btn) {
@@ -1012,7 +1076,10 @@ function batchDelete(type) {
   var labels = {question: '題目', user: '用戶', record: '測驗紀錄'};
   var ids = [];
   document.querySelectorAll('.' + prefix + '-cb:checked').forEach(function(cb) {
-    ids.push(parseInt(cb.value));
+    var row = cb.closest('tr');
+    if (!row || row.style.display !== 'none') {
+      ids.push(parseInt(cb.value));
+    }
   });
   if (ids.length === 0) { alert('請先選取要刪除的項目'); return; }
   if (!confirm('確定要刪除選取的 ' + ids.length + ' 個' + (labels[type] || '項目') + ' 嗎？此操作無法還原。')) return;

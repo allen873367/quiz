@@ -913,7 +913,7 @@ def api_create_question(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def api_update_user(request, uid):
-    """更新用戶資訊（Admin）"""
+    """更新用戶資訊（Admin）— 支援身分組選擇"""
     if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'error': '未授權'}, status=403)
 
@@ -922,7 +922,26 @@ def api_update_user(request, uid):
         data = request.POST.dict()
         user.nickname = data.get('nickname', user.nickname)
         user.email = data.get('email', user.email)
-        user.is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+        user.student_class = data.get('student_class', user.student_class) or None
+
+        # 身分組處理
+        role = data.get('role', '')
+        if role == 'admin':
+            user.is_superuser = True
+            user.is_staff = True
+            user.is_teacher = True
+        elif role == 'teacher':
+            user.is_superuser = False
+            user.is_staff = False
+            user.is_teacher = True
+        elif role == 'student':
+            user.is_superuser = False
+            user.is_staff = False
+            user.is_teacher = False
+        else:
+            # 相容舊版欄位
+            user.is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+
         if data.get('password'):
             user.set_password(data.get('password'))
         user.save()
@@ -936,7 +955,7 @@ def api_update_user(request, uid):
 @csrf_exempt
 @require_http_methods(['POST'])
 def api_create_user(request):
-    """建立新用戶"""
+    """建立新用戶（支援身分組選擇）"""
     if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'error': '未授權'}, status=403)
 
@@ -946,7 +965,7 @@ def api_create_user(request):
         username = data.get('username', '').strip()
         password = data.get('password', '')
         email = data.get('email', '').strip()
-        is_staff = data.get('is_staff', 'false').lower() in ('true', '1', 'on')
+        role = data.get('role', 'student')
 
         if not username:
             return JsonResponse({'error': '帳號不能為空'}, status=400)
@@ -956,7 +975,14 @@ def api_create_user(request):
             return JsonResponse({'error': '帳號已存在'}, status=400)
 
         user = User.objects.create_user(username=username, password=password, email=email)
-        user.is_staff = is_staff
+        if role == 'admin':
+            user.is_superuser = True
+            user.is_staff = True
+            user.is_teacher = True
+        elif role == 'teacher':
+            user.is_staff = False
+            user.is_teacher = True
+        # student: all False (default)
         user.save()
         return JsonResponse({'success': True, 'id': user.id})
     except Exception as e:
@@ -1538,11 +1564,11 @@ def import_questions_csv(request):
 
 
 # ═══════════════════════════════════════════
-#   Feature 3: 班級與群組功能
+#   Feature 3: 課程與群組功能
 # ═══════════════════════════════════════════
 
 def classroom_list(request):
-    """教師的班級列表頁面"""
+    """教師的課程列表頁面"""
     if not request.user.is_authenticated or not request.user.is_teacher:
         return redirect('home')
 
@@ -1553,7 +1579,7 @@ def classroom_list(request):
 
 
 def classroom_detail(request, classroom_id):
-    """班級儀表板 — 教師檢視學生表現"""
+    """課程儀表板 — 教師檢視學生表現"""
     if not request.user.is_authenticated or not request.user.is_teacher:
         return redirect('home')
 
@@ -1599,7 +1625,7 @@ def classroom_detail(request, classroom_id):
 @csrf_exempt
 @require_http_methods(['POST'])
 def api_classroom_create(request):
-    """教師建立班級房間"""
+    """教師建立課程"""
     if not request.user.is_authenticated or not request.user.is_teacher:
         return JsonResponse({'error': '未授權'}, status=403)
 
@@ -1609,7 +1635,7 @@ def api_classroom_create(request):
         description = data.get('description', '').strip()
 
         if not name:
-            return JsonResponse({'error': '請輸入班級名稱'}, status=400)
+            return JsonResponse({'error': '請輸入課程名稱'}, status=400)
 
         # 產生唯一邀請碼
         import string, random
@@ -1632,7 +1658,7 @@ def api_classroom_create(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def api_classroom_join(request):
-    """學生透過邀請碼加入班級"""
+    """學生透過邀請碼加入課程"""
     if not request.user.is_authenticated:
         return JsonResponse({'error': '請先登入'}, status=401)
 
@@ -1646,15 +1672,15 @@ def api_classroom_join(request):
         try:
             classroom = Classroom.objects.get(invite_code=code, is_active=True)
         except Classroom.DoesNotExist:
-            return JsonResponse({'error': '邀請碼無效或班級已關閉'}, status=400)
+            return JsonResponse({'error': '邀請碼無效或課程已關閉'}, status=400)
 
         # 檢查是否已經加入
         if ClassroomEnrollment.objects.filter(classroom=classroom, student=request.user).exists():
-            return JsonResponse({'error': '你已加入此班級'}, status=400)
+            return JsonResponse({'error': '你已加入此課程'}, status=400)
 
-        # 教師不能加入自己的班級
+        # 教師不能加入自己的課程
         if classroom.teacher == request.user:
-            return JsonResponse({'error': '教師無需加入自己的班級'}, status=400)
+            return JsonResponse({'error': '教師無需加入自己的課程'}, status=400)
 
         ClassroomEnrollment.objects.create(classroom=classroom, student=request.user)
 
@@ -1668,7 +1694,7 @@ def api_classroom_join(request):
 
 
 def classroom_my(request):
-    """學生的已加入班級頁面"""
+    """學生的已加入課程頁面"""
     if not request.user.is_authenticated:
         return redirect('login')
 
@@ -1676,6 +1702,86 @@ def classroom_my(request):
     return render(request, 'quiz_app/classroom_my.html', {
         'enrollments': enrollments,
     })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_leave(request):
+    """學生退出課程"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': '請先登入'}, status=401)
+    try:
+        data = json.loads(request.body or '{}')
+        classroom_id = data.get('classroom_id')
+        enrollment = ClassroomEnrollment.objects.filter(
+            classroom_id=classroom_id, student=request.user
+        ).first()
+        if not enrollment:
+            return JsonResponse({'error': '你不在這個課程中'}, status=400)
+        enrollment.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_kick(request, classroom_id):
+    """教師踢除學生"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return JsonResponse({'error': '未授權'}, status=403)
+    try:
+        classroom = Classroom.objects.get(id=classroom_id, teacher=request.user)
+        data = json.loads(request.body or '{}')
+        student_id = data.get('student_id')
+        if not student_id:
+            return JsonResponse({'error': '請指定學生'}, status=400)
+        enrollment = ClassroomEnrollment.objects.filter(
+            classroom=classroom, student_id=student_id
+        ).first()
+        if not enrollment:
+            return JsonResponse({'error': '該學生不在課程中'}, status=400)
+        enrollment.delete()
+        return JsonResponse({'success': True})
+    except Classroom.DoesNotExist:
+        return JsonResponse({'error': '課程不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_close(request, classroom_id):
+    """教師關閉課程（軟刪除，設為不啟用）"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return JsonResponse({'error': '未授權'}, status=403)
+    try:
+        classroom = Classroom.objects.get(id=classroom_id, teacher=request.user)
+        classroom.is_active = False
+        classroom.save(update_fields=['is_active'])
+        return JsonResponse({'success': True})
+    except Classroom.DoesNotExist:
+        return JsonResponse({'error': '課程不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def api_classroom_delete(request, classroom_id):
+    """教師刪除課程（永久刪除）"""
+    if not request.user.is_authenticated or not request.user.is_teacher:
+        return JsonResponse({'error': '未授權'}, status=403)
+    try:
+        classroom = Classroom.objects.get(id=classroom_id, teacher=request.user)
+        # 刪除所有成員關係
+        ClassroomEnrollment.objects.filter(classroom=classroom).delete()
+        classroom.delete()
+        return JsonResponse({'success': True})
+    except Classroom.DoesNotExist:
+        return JsonResponse({'error': '課程不存在'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 
 # ═══════════════════════════════════════════
@@ -1730,14 +1836,146 @@ def export_quiz_pdf(request):
     })
 
     try:
-        from weasyprint import HTML
-        pdf = HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf()
+        # 使用 reportlab 直接產生 PDF（純 Python，無需外部依賴）
+        from io import BytesIO
         from django.http import HttpResponse
-        response = HttpResponse(pdf, content_type='application/pdf')
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm, mm
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+            PageBreak
+        )
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        pdf_file = BytesIO()
+        doc = SimpleDocTemplate(
+            pdf_file, pagesize=A4,
+            topMargin=2*cm, bottomMargin=2*cm,
+            leftMargin=1.5*cm, rightMargin=1.5*cm,
+        )
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle', parent=styles['Title'],
+            fontSize=24, leading=30, spaceAfter=12,
+            textColor=colors.HexColor('#0a0a23'),
+        )
+        subtitle_style = ParagraphStyle(
+            'Subtitle', parent=styles['Normal'],
+            fontSize=14, leading=18, spaceAfter=6,
+            textColor=colors.HexColor('#64748b'),
+        )
+        heading_style = ParagraphStyle(
+            'Heading2', parent=styles['Heading2'],
+            fontSize=16, leading=20, spaceAfter=10,
+            spaceBefore=20,
+            textColor=colors.HexColor('#0a0a23'),
+        )
+        normal_style = ParagraphStyle(
+            'CustomNormal', parent=styles['Normal'],
+            fontSize=11, leading=16,
+            textColor=colors.HexColor('#1a1a2e'),
+        )
+        stats_style = ParagraphStyle(
+            'StatsValue', parent=styles['Normal'],
+            fontSize=22, leading=26, spaceAfter=2,
+            textColor=colors.HexColor('#00d4ff'),
+            alignment=1,  # center
+        )
+        stats_label = ParagraphStyle(
+            'StatsLabel', parent=styles['Normal'],
+            fontSize=9, leading=12,
+            textColor=colors.HexColor('#64748b'),
+            alignment=1,
+        )
+
+        story = []
+
+        # ── Header ──
+        story.append(Paragraph('📊 學習歷程報告', title_style))
+        story.append(Paragraph('資料結構測驗 — 學習總覽', subtitle_style))
+        story.append(Spacer(1, 6))
+        user_info = f'👤 {user.nickname or user.username}'
+        if user.student_class:
+            user_info += f'&nbsp;&nbsp;🏫 {user.student_class}'
+        story.append(Paragraph(user_info, normal_style))
+        story.append(Spacer(1, 20))
+
+        # ── Stats Overview ──
+        story.append(Paragraph('📈 學習總覽', heading_style))
+        stats_data = [
+            [str(total_quiz), str(total_questions), str(total_correct), str(wrong_qs), f'{avg_score}'],
+            ['測驗次數', '總答題數', '總正確數', '總錯誤數', '平均分數'],
+        ]
+        stats_table = Table(stats_data, colWidths=[3.2*cm]*5)
+        stats_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, 0), 22),
+            ('FONTSIZE', (0, 1), (-1, 1), 9),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#0a0a23')),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#64748b')),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('TOPPADDING', (0, 1), (-1, 1), 4),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f4ff')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ]))
+        story.append(stats_table)
+        story.append(Spacer(1, 24))
+
+        # ── Chapter Performance ──
+        story.append(Paragraph('📚 各章節表現', heading_style))
+
+        chapter_header = [['章節', '答對', '總題數', '正確率']]
+        chapter_rows = [chapter_header]
+        for ch in chapters_data:
+            rate_color = '#00e676' if ch['rate'] >= 80 else '#ffd93d' if ch['rate'] >= 60 else '#ff6b6b'
+            chapter_rows.append([
+                ch['name'],
+                str(ch['correct']),
+                str(ch['total']),
+                f'{ch["rate"]}%',
+            ])
+
+        chapter_table = Table(chapter_rows, colWidths=[8*cm, 2.5*cm, 2.5*cm, 3*cm])
+        chapter_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0a0a23')),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ]))
+        chapter_table.hAlign = 'LEFT'
+        story.append(chapter_table)
+        story.append(Spacer(1, 24))
+
+        # ── Footer ──
+        story.append(Spacer(1, 20))
+        footer_text = f'資料結構測驗網站 · 報告產生時間：{timezone.now().strftime("%Y-%m-%d %H:%M")} · 此報告為系統自動生成'
+        story.append(Paragraph(footer_text, ParagraphStyle(
+            'Footer', parent=styles['Normal'],
+            fontSize=8, textColor=colors.HexColor('#94a3b8'),
+            alignment=1, spaceBefore=10,
+        )))
+
+        doc.build(story)
+        pdf_file.seek(0)
+        response = HttpResponse(pdf_file.read(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="learning_report_{user.username}_{timezone.now().strftime("%Y%m%d")}.pdf"'
         return response
-    except (ImportError, OSError):
-        # 若 weasyprint 無法使用（Windows 缺少 GTK 等），改回傳 HTML 預覽
+    except Exception as e:
+        # 若 PDF 產生失敗（極少情況），回傳 HTML 預覽
         return render(request, 'quiz_app/pdf_report.html', {
             'user': user,
             'total_quiz': total_quiz,

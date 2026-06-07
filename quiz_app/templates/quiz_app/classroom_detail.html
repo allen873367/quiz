@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{{ classroom.name }} — 班級儀表板</title>
+  <title>{{ classroom.name }} — 課程儀表板</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
@@ -30,11 +30,13 @@
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         {% if user.is_teacher %}
-        <a class="nav-link active" href="{% url 'classroom_list' %}">班級</a>
+        <a class="nav-link active" href="{% url 'classroom_list' %}">課程</a>
         {% else %}
-        <a class="nav-link active" href="{% url 'classroom_my' %}">班級</a>
+        <a class="nav-link active" href="{% url 'classroom_my' %}">課程</a>
         {% endif %}
+        {% if user.is_staff %}
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+        {% endif %}
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
@@ -77,6 +79,16 @@
             <div style="display:flex;gap:20px;font-size:13px;">
               <div><span class="dim">建立時間</span><br>{{ classroom.created_at|date:"Y-m-d" }}</div>
               <div><span class="dim">教師</span><br>{{ classroom.teacher.nickname }}</div>
+              {% if classroom.is_active %}
+              <div>
+                <button class="btn btn-sm btn-ghost" onclick="closeCourse({{ classroom.id }})" style="color:var(--coral);border-color:var(--coral-border);font-size:11px;">🔒 關閉課程</button>
+              </div>
+              {% else %}
+              <div><span class="tag tag-coral">已關閉</span></div>
+              <div>
+                <button class="btn btn-sm btn-ghost" onclick="deleteCourse({{ classroom.id }})" style="color:var(--coral);border-color:var(--coral-border);font-size:11px;">🗑️ 刪除課程</button>
+              </div>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -98,6 +110,7 @@
               <th style="text-align:center;">答對題數</th>
               <th style="text-align:center;">總題數</th>
               <th style="text-align:center;">平均分數</th>
+              {% if classroom.is_active %}<th style="text-align:center;">操作</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -112,6 +125,11 @@
                   {{ s.avg_score }}
                 </span>
               </td>
+              {% if classroom.is_active %}
+              <td style="text-align:center;">
+                <button class="btn btn-sm btn-ghost" onclick="kickStudent({{ classroom.id }},{{ s.id }})" style="color:var(--coral);border-color:var(--coral-border);font-size:11px;padding:2px 8px;">踢除</button>
+              </td>
+              {% endif %}
             </tr>
             {% endfor %}
           </tbody>
@@ -119,8 +137,8 @@
       </div>
       {% else %}
       <div class="empty">
-        <div>尚無學生加入此班級</div>
-        <div style="margin-top:8px;color:var(--text-faint);">分享邀請碼給學生，讓他們加入班級！</div>
+        <div>尚無學生加入此課程</div>
+        <div style="margin-top:8px;color:var(--text-faint);">分享邀請碼給學生，讓他們加入課程！</div>
       </div>
       {% endif %}
 
@@ -152,7 +170,7 @@
       {% endif %}
 
       <div style="margin-top:24px;display:flex;gap:12px;">
-        <a class="btn" href="{% url 'classroom_list' %}">← 返回班級列表</a>
+        <a class="btn" href="{% url 'classroom_list' %}">← 返回課程列表</a>
         <a class="btn btn-ghost" href="{% url 'home' %}">回首頁</a>
       </div>
 
@@ -179,6 +197,46 @@ document.addEventListener('click', function(e) {
     nav.classList.remove('open'); btn.classList.remove('active');
   }
 });
+function deleteCourse(classroomId) {
+  if (!confirm('確定要永久刪除此課程嗎？所有成員關係將一併刪除，無法還原！')) return;
+  fetch('/api/classroom/' + classroomId + '/delete/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.success) window.location.href = '/classroom/';
+    else alert('刪除失敗：' + (resp.error || ''));
+  });
+}
+
+function closeCourse(classroomId) {
+  if (!confirm('確定要關閉此課程嗎？學生將無法繼續使用此課程。')) return;
+  fetch('/api/classroom/' + classroomId + '/close/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRFToken() },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.success) location.reload();
+    else alert('關閉失敗：' + (resp.error || ''));
+  });
+}
+
+function kickStudent(classroomId, studentId) {
+  if (!confirm('確定要將此學生從課程中移除嗎？')) return;
+  fetch('/api/classroom/' + classroomId + '/kick/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+    body: JSON.stringify({ student_id: studentId }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.success) location.reload();
+    else alert('踢除失敗：' + (resp.error || ''));
+  });
+}
+
 function copyCode(code) {
   if (navigator.clipboard) { navigator.clipboard.writeText(code).then(function() { alert('已複製邀請碼！'); }); }
   else { alert('邀請碼：' + code); }

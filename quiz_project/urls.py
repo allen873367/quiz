@@ -50,12 +50,16 @@ urlpatterns = [
     path('admin-panel/export/csv/', views.export_questions_csv, name='export_questions_csv'),
     path('admin-panel/import/csv/', views.import_questions_csv, name='import_questions_csv'),
 
-    # ─── Feature 3: 班級功能 ───
+    # ─── Feature 3: 課程功能 ───
     path('classroom/', views.classroom_list, name='classroom_list'),
     path('classroom/my/', views.classroom_my, name='classroom_my'),
     path('classroom/<int:classroom_id>/', views.classroom_detail, name='classroom_detail'),
     path('api/classroom/create/', views.api_classroom_create, name='api_classroom_create'),
     path('api/classroom/join/', views.api_classroom_join, name='api_classroom_join'),
+    path('api/classroom/leave/', views.api_classroom_leave, name='api_classroom_leave'),
+    path('api/classroom/<int:classroom_id>/kick/', views.api_classroom_kick, name='api_classroom_kick'),
+    path('api/classroom/<int:classroom_id>/close/', views.api_classroom_close, name='api_classroom_close'),
+    path('api/classroom/<int:classroom_id>/delete/', views.api_classroom_delete, name='api_classroom_delete'),
 
     # ─── Feature 4: PDF 匯出 ───
     path('export/pdf/', views.export_quiz_pdf, name='export_quiz_pdf'),

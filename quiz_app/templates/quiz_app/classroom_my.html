@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>我的班級 — 資料結構測驗</title>
+  <title>我的課程 — 資料結構測驗</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
@@ -30,11 +30,13 @@
         <a class="nav-link" href="{% url 'quiz_records' %}">紀錄</a>
         <a class="nav-link" href="{% url 'wrong_answers' %}">複習</a>
         {% if user.is_teacher %}
-        <a class="nav-link" href="{% url 'classroom_list' %}">班級</a>
+        <a class="nav-link" href="{% url 'classroom_list' %}">課程</a>
         {% else %}
-        <a class="nav-link active" href="{% url 'classroom_my' %}">班級</a>
+        <a class="nav-link active" href="{% url 'classroom_my' %}">課程</a>
         {% endif %}
+        {% if user.is_staff %}
         <a class="nav-link" href="{% url 'admin_panel' %}">管理</a>
+        {% endif %}
       </nav>
       <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="選單">☰</button>
       <div class="header-meta">
@@ -50,12 +52,12 @@
     <div class="container">
 
       <div class="section-head">
-        <h3 class="section-title">🏫 我的班級</h3>
-        <span class="section-meta">{{ enrollments|length }} 個班級</span>
+        <h3 class="section-title">🏫 我的課程</h3>
+        <span class="section-meta">{{ enrollments|length }} 個課程</span>
       </div>
 
       <div style="margin-bottom:20px;">
-        <button class="btn btn-primary" onclick="openJoinModal()">🔑 加入班級</button>
+        <button class="btn btn-primary" onclick="openJoinModal()">🔑 加入課程</button>
       </div>
 
       {% if enrollments %}
@@ -75,14 +77,21 @@
             {% if e.classroom.description %}
             <div style="margin-top:8px;font-size:12px;color:var(--text-faint);">{{ e.classroom.description }}</div>
             {% endif %}
+            {% if e.classroom.is_active %}
+            <div style="margin-top:12px;text-align:right;">
+              <button class="btn btn-sm btn-ghost" onclick="leaveCourse({{ e.classroom.id }})" style="color:var(--coral);border-color:var(--coral-border);font-size:11px;">退課</button>
+            </div>
+            {% else %}
+            <div style="margin-top:12px;"><span class="tag tag-coral" style="font-size:11px;">已關閉</span></div>
+            {% endif %}
           </div>
         </div>
         {% endfor %}
       </div>
       {% else %}
       <div class="empty">
-        <div>尚未加入任何班級</div>
-        <div style="margin-top:8px;color:var(--text-faint);">向老師索取邀請碼，點擊上方按鈕加入班級！</div>
+        <div>尚未加入任何課程</div>
+        <div style="margin-top:8px;color:var(--text-faint);">向老師索取邀請碼，點擊上方按鈕加入課程！</div>
       </div>
       {% endif %}
 
@@ -105,7 +114,7 @@
 <div class="modal-overlay" id="joinModal" style="display:none;" onclick="if(event.target===this)closeJoinModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <h3 style="margin:0;">🔑 加入班級</h3>
+      <h3 style="margin:0;">🔑 加入課程</h3>
       <button class="modal-close" onclick="closeJoinModal()">&times;</button>
     </div>
     <div class="modal-body">
@@ -115,7 +124,7 @@
       </div>
       <div id="join-error" class="coral" style="display:none;margin-top:8px;"></div>
       <div id="join-success" style="display:none;padding:16px;background:var(--glass-bg);border:1px solid var(--mint-border);border-radius:var(--radius);margin-top:12px;text-align:center;">
-        <div class="mint" style="font-size:20px;font-weight:700;">🎉 成功加入班級！</div>
+        <div class="mint" style="font-size:20px;font-weight:700;">🎉 成功加入課程！</div>
       </div>
     </div>
     <div class="modal-footer" id="join-footer">
@@ -196,6 +205,20 @@ function closeJoinModal() {
   document.getElementById('joinModal').style.display = 'none';
   document.body.style.overflow = '';
 }
+function leaveCourse(classroomId) {
+  if (!confirm('確定要退出此課程嗎？')) return;
+  fetch('/api/classroom/leave/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+    body: JSON.stringify({ classroom_id: classroomId }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.success) location.reload();
+    else alert('退出失敗：' + (resp.error || ''));
+  });
+}
+
 function joinClassroom() {
   var code = document.getElementById('invite-code').value.trim().toUpperCase();
   if (!code) { alert('請輸入邀請碼'); return; }

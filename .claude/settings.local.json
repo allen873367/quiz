@@ -22,7 +22,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/classroom/my/)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/export/pdf/)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/classroom/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/classroom/)",
+      "Bash(python -c \"from xhtml2pdf import pisa; print\\('xhtml2pdf OK'\\)\")"
     ]
   }
 }
