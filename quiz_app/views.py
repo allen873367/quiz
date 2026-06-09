@@ -1828,5 +1828,5 @@ def export_quiz_pdf(request):
         'total_wrong': wrong_qs,
         'avg_score': avg_score,
         'chapters': chapters_data,
-        'generated_at': timezone.now().strftime('%Y-%m-%d %H:%M'),
+        'generated_at': timezone.localtime().strftime('%Y-%m-%d %H:%M'),
     })
