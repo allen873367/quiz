@@ -11,12 +11,19 @@ from .models import Question, QuizRecord, WrongAnswer, User, Classroom, Classroo
 import random
 import json
 from collections import OrderedDict
+import re
+
+
+def _chapter_sort_key(ch):
+    """從『第N章　主題』中提取數字 N 作為排序鍵值"""
+    m = re.search(r'第(\d+)章', ch)
+    return int(m.group(1)) if m else 0
 
 
 def quiz_home(request):
     # 用 Python set 去重，避免 SQLite distinct 在 Unicode 上的問題
     raw_chapters = list(Question.objects.values_list('chapter', flat=True))
-    unique_chapters = sorted(set(raw_chapters))
+    unique_chapters = sorted(set(raw_chapters), key=_chapter_sort_key)
     chapter_count = len(unique_chapters)
     total_questions = Question.objects.count()
     new_questions = Question.objects.filter(is_new=True).count()
@@ -90,8 +97,8 @@ def _build_shuffled_options(q):
     labels = label_order[:len(option_texts)]
 
     # 記錄正確答案對應的內容
-    correct_idx = label_order.index(q.correct_answer)
-    correct_text = option_texts[correct_idx] if correct_idx < len(option_texts) else ''
+    correct_idx = label_order.index(q.correct_answer) if q.correct_answer in label_order[:len(option_texts)] else -1
+    correct_text = option_texts[correct_idx] if correct_idx >= 0 else ''
 
     # 隨機打亂內容
     random.shuffle(option_texts)
@@ -180,7 +187,7 @@ def random_quiz_setup(request):
     if not request.user.is_authenticated:
         return redirect('login')
 
-    chapters = Question.objects.values_list('chapter', flat=True).distinct().order_by('chapter')
+    chapters = sorted(set(Question.objects.values_list('chapter', flat=True).distinct()), key=_chapter_sort_key)
     total_all = Question.objects.count()
 
     return render(request, 'quiz_app/random_quiz_setup.html', {
@@ -329,6 +336,7 @@ def submit_quiz(request):
                     new_wrong_ids.append(question_id)
 
             results.append({
+                'question_id': question_id,
                 'question': item['question'],
                 'options': item['options'],
                 'user_answer': user_answer,
@@ -454,20 +462,12 @@ def submit_quiz(request):
 
         # 保存錯題記錄（SR 使用第一輪的錯題資料）
         if sr_enabled and sr_original_total and sr_full_results:
-            # 建立 question_text → Question 的查詢表，避免重複查詢
             wrong_qs = [item for item in sr_full_results if not item['is_correct']]
-            q_ids = []
-            for item in quiz_data:
-                q_ids.append(item['id'])
-            wrong_questions = Question.objects.filter(id__in=q_ids)
+            wrong_q_ids = [item['question_id'] for item in wrong_qs if item.get('question_id')]
+            wrong_questions = Question.objects.filter(id__in=wrong_q_ids)
             q_map = {q.id: q for q in wrong_questions}
             for item in wrong_qs:
-                # 從 display_results 的 question text 找對應的 question id
-                qid = None
-                for qi in quiz_data:
-                    if qi['question'] == item['question']:
-                        qid = qi['id']
-                        break
+                qid = item.get('question_id')
                 if qid and qid in q_map:
                     WrongAnswer.objects.create(
                         quiz_record=quiz_record,
@@ -551,7 +551,7 @@ def quiz_records(request):
     records = qs.order_by('-created_at')[:20]
     chapters_list = sorted(set(
         QuizRecord.objects.values_list('chapter', flat=True)
-    ))
+    ), key=_chapter_sort_key)
     return render(request, 'quiz_app/quiz_records.html', {
         'records': records,
         'mode': mode,
@@ -581,7 +581,7 @@ def leaderboard(request):
     # 取得所有出現過的章節
     chapters_list = sorted(set(
         QuizRecord.objects.values_list('chapter', flat=True)
-    ))
+    ), key=_chapter_sort_key)
     return render(request, 'quiz_app/leaderboard.html', {
         'records': records,
         'mode': 'general',
@@ -610,7 +610,7 @@ def sr_leaderboard(request):
 
     chapters_list = sorted(set(
         QuizRecord.objects.values_list('chapter', flat=True)
-    ))
+    ), key=_chapter_sort_key)
     return render(request, 'quiz_app/leaderboard.html', {
         'records': records,
         'mode': 'sr',
@@ -633,11 +633,35 @@ def wrong_answers(request):
     ).filter(wrong_count__gt=0).order_by('-created_at')[:20]
     chapters_list = sorted(set(
         QuizRecord.objects.values_list('chapter', flat=True)
-    ))
+    ), key=_chapter_sort_key)
     return render(request, 'quiz_app/wrong_answers.html', {
         'records': records,
         'chapters': chapters_list,
         'selected_chapter': chapter,
+        'mode': 'general',
+    })
+
+
+def sr_wrong_answers(request):
+    """間隔學習錯題列表（僅顯示 is_sr=True 的記錄）"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+    from django.db.models import Count
+    chapter = request.GET.get('chapter', '')
+    qs = QuizRecord.objects.filter(user=request.user, is_sr=True)
+    if chapter:
+        qs = qs.filter(chapter=chapter)
+    records = qs.annotate(
+        wrong_count=Count('wronganswer')
+    ).filter(wrong_count__gt=0).order_by('-created_at')[:20]
+    chapters_list = sorted(set(
+        QuizRecord.objects.values_list('chapter', flat=True)
+    ), key=_chapter_sort_key)
+    return render(request, 'quiz_app/wrong_answers.html', {
+        'records': records,
+        'chapters': chapters_list,
+        'selected_chapter': chapter,
+        'mode': 'sr',
     })
 
 
@@ -670,6 +694,47 @@ def wrong_answers_detail(request, record_id):
     })
 
 
+def sr_wrong_answers_detail(request, record_id):
+    """間隔學習錯題詳情 — 只顯示第一次作答的錯題（去重複 question）"""
+    record = QuizRecord.objects.get(id=record_id, is_sr=True)
+    wrong_answers = WrongAnswer.objects.filter(
+        quiz_record=record
+    ).select_related('question').order_by('created_at')
+
+    # 只保留每個 question 的第一筆 WrongAnswer（即該次 SR 中第一次答錯）
+    seen_qids = set()
+    first_wrongs = []
+    for wa in wrong_answers:
+        if wa.question_id not in seen_qids:
+            seen_qids.add(wa.question_id)
+            first_wrongs.append(wa)
+
+    wrong_data = []
+    for wrong in first_wrongs:
+        question = wrong.question
+        options = [
+            ('A', question.option_a),
+            ('B', question.option_b),
+            ('C', question.option_c),
+        ]
+        if question.option_d:
+            options.append(('D', question.option_d))
+        if question.option_e:
+            options.append(('E', question.option_e))
+
+        wrong_data.append({
+            'wrong': wrong,
+            'options': options,
+            'explanation': question.explanation or '',
+        })
+
+    return render(request, 'quiz_app/wrong_answers_detail.html', {
+        'record': record,
+        'wrong_answers': wrong_data,
+        'is_sr': True,
+    })
+
+
 def review_wrong(request, wrong_id):
     wrong = WrongAnswer.objects.get(id=wrong_id)
     question = wrong.question
@@ -699,7 +764,7 @@ def admin_panel(request):
         return redirect('home')
 
     raw_chapters = list(Question.objects.values_list('chapter', flat=True))
-    unique_chapters = sorted(set(raw_chapters))
+    unique_chapters = sorted(set(raw_chapters), key=_chapter_sort_key)
     total_questions = Question.objects.count()
     new_questions = Question.objects.filter(is_new=True).count()
     total_users = User.objects.count()
@@ -1316,22 +1381,9 @@ def api_question_error_stats(request):
         return JsonResponse({'error': '題目不存在'}, status=404)
 
     wrong_count = WrongAnswer.objects.filter(question=question).count()
-    wrong_records_ids = (WrongAnswer.objects.filter(question=question)
-                         .values_list('quiz_record_id', flat=True).distinct())
+    total_attempts = question.total_attempt_count
 
-    # 嘗試估算總答題次數：每個有這題錯題的 record 代表這題被答過
-    # 再加上可能有答對但沒在 WrongAnswer 中的 record
-    # 用所有包含相同題數+章節的 record 來估算
-    wrong_record_set = set(wrong_records_ids)
-    # 從該章節的 QuizRecord 中估計出現次數
-    same_chapter_records = QuizRecord.objects.filter(chapter=question.chapter)
-    total_approx = len(wrong_record_set)
-    # 再加上可能有答對但沒記錄的估算
-    if same_chapter_records.count() > 0:
-        # 保守估算：至少有 wrong_record_set 個，最多 same_chapter_records 個
-        total_approx = max(total_approx, len(wrong_record_set))
-
-    error_rate = round((wrong_count / max(total_approx, 1)) * 100, 1)
+    error_rate = round((wrong_count / max(total_attempts, 1)) * 100, 1)
 
     # 選項分布（包含正解統計）
     option_dist = {}
@@ -1340,8 +1392,7 @@ def api_question_error_stats(request):
     for wa in wrong_answers:
         option_dist[wa['user_answer']] = wa['count']
 
-    # 正解次數估算 = 總嘗試次數 - 答錯次數
-    correct_approx = max(total_approx - wrong_count, 0)
+    correct_approx = max(total_attempts - wrong_count, 0)
 
     options = {
         'A': question.option_a or '',
@@ -1364,7 +1415,7 @@ def api_question_error_stats(request):
         'error_stats': {
             'wrong_count': wrong_count,
             'correct_approx': correct_approx,
-            'total_attempts_approx': total_approx,
+            'total_attempts_approx': total_attempts,
             'error_rate': error_rate,
         },
         'option_distribution': option_dist,
@@ -1467,7 +1518,7 @@ def export_questions_csv(request):
     import csv, io
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['章節', '題號', '題目內容', '選項A', '選項B', '選項C', '選項D', '選項E', '正確答案', '難易度', '詳解'])
+    writer.writerow(['章節', '題號', '題目內容', '選項A', '選項B', '選項C', '選項D', '選項E', '正確答案', '難易度', '詳解', '連貫題組別', '自編題目', '題目來源'])
 
     questions = Question.objects.all().order_by('chapter', 'question_number')
     for q in questions:
@@ -1476,6 +1527,7 @@ def export_questions_csv(request):
             q.option_a, q.option_b, q.option_c,
             q.option_d or '', q.option_e or '',
             q.correct_answer, q.difficulty, q.explanation or '',
+            q.sequence_group or '', '是' if q.is_new else '', q.source_note or '',
         ])
 
     csv_bytes = output.getvalue().encode('utf-8-sig')
@@ -1538,9 +1590,14 @@ def import_questions_csv(request):
             existing.correct_answer = row.get('正確答案', 'A').strip().upper()
             existing.difficulty = row.get('難易度', 'medium').strip()
             existing.explanation = row.get('詳解', '').strip() or ''
+            existing.sequence_group = row.get('連貫題組別', '').strip() or None
+            is_new_val = row.get('自編題目', '').strip()
+            existing.is_new = (is_new_val == '是')
+            existing.source_note = row.get('題目來源', '').strip() or ''
             existing.save()
             created += 1
         else:
+            is_new_val = row.get('自編題目', '').strip()
             Question.objects.create(
                 chapter=chapter,
                 question_number=qnum,
@@ -1553,6 +1610,9 @@ def import_questions_csv(request):
                 correct_answer=row.get('正確答案', 'A').strip().upper(),
                 difficulty=row.get('難易度', 'medium').strip(),
                 explanation=row.get('詳解', '').strip() or '',
+                sequence_group=row.get('連貫題組別', '').strip() or None,
+                is_new=(is_new_val == '是'),
+                source_note=row.get('題目來源', '').strip() or '',
             )
             created += 1
 

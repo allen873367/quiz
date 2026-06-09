@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>管理後台 — 資料結構測驗</title>
   {% load static %}
+  {% load chapter_extras %}
   <link rel="stylesheet" href="{% static 'quiz_app/css/style.css' %}"/>
 </head>
 <body>
@@ -148,7 +149,7 @@
                 <tr class="q-row" data-chapter="{{ q.chapter }}" data-source="{% if q.is_new %}new{% else %}teacher{% endif %}" data-search="{{ q.text|lower }}" onclick="openEditModal({{ q.id }})" style="cursor:pointer;">
                   <td style="width:32px;text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="q-cb" value="{{ q.id }}" onchange="updateBatchBtn('q')"></td>
                   <td class="dim">{{ q.number }}</td>
-                  <td><span class="tag tag-sm tag-indigo">{{ q.chapter|slice:"4:" }}</span></td>
+                  <td><span class="tag tag-sm tag-indigo">{{ q.chapter|chapter_topic }}</span></td>
                   <td class="q-text">{{ q.text }}</td>
                   <td><span class="tag tag-sm tag-green">{{ q.correct_answer }}</span></td>
                   <td>
@@ -374,7 +375,7 @@
                 <select class="input input-sm analytics-select" id="question-select" onchange="loadQuestionStats()">
                   <option value="">— 選擇題目 —</option>
                   {% for q in info_questions %}
-                  <option value="{{ q.id }}">[{{ q.chapter|slice:'4:' }}] 第{{ q.question_number }}題 — {{ q.question_text|truncatechars:40 }}</option>
+                  <option value="{{ q.id }}">[{{ q.chapter|chapter_topic }}] 第{{ q.question_number }}題 — {{ q.question_text|truncatechars:40 }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -1382,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
-/* ── 鍵盤支援/* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
+/* ── 鍵盤支援：Esc 關閉，Ctrl+Enter 儲存 ── */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     if (modal.style.display === 'flex') closeEditModal();
@@ -1413,7 +1414,7 @@ document.addEventListener('keydown', function(e) {
         <label class="form-label">班級</label>
         <input class="input" id="profile-class" type="text" disabled style="opacity:0.7;cursor:not-allowed;">
       </div>
-      <hr style="border:none;border-top:1px solid var(--glass-border;--glass-border);margin:16px 0;">
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:16px 0;">
       <div class="form-group">
         <label class="form-label">目前密碼</label>
         <input class="input" id="profile-old-pw" type="password" placeholder="輸入目前密碼">

@@ -57,7 +57,7 @@
 
       <div class="section-head">
         <h3 class="section-title">📝 錯題詳情</h3>
-        <span class="section-meta">{{ record.chapter }} · {{ record.created_at|date:"Y-m-d H:i" }}</span>
+        <span class="section-meta">{{ record.chapter }} · {{ record.created_at|date:"Y-m-d H:i" }}{% if is_sr %} <span class="tag tag-purple" style="font-size:11px;">間隔學習</span>{% endif %}</span>
       </div>
 
       {% if wrong_answers %}
@@ -112,7 +112,7 @@
       {% endif %}
 
       <div style="margin-top:24px;">
-        <a class="btn" href="{% url 'wrong_answers' %}">← 返回錯題列表</a>
+        <a class="btn" href="{% if is_sr %}{% url 'sr_wrong_answers' %}{% else %}{% url 'wrong_answers' %}{% endif %}">← 返回錯題列表</a>
       </div>
 
     </div>

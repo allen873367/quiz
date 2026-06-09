@@ -61,8 +61,14 @@
         <span class="section-meta">點擊查看詳情</span>
       </div>
 
+      <!-- 模式切換 -->
+      <div class="seg" style="margin-bottom:16px;">
+        <a href="{% url 'wrong_answers' %}?chapter={{ selected_chapter }}" class="{% if mode == 'general' %}active{% endif %}">一般錯題</a>
+        <a href="{% url 'sr_wrong_answers' %}?chapter={{ selected_chapter }}" class="{% if mode == 'sr' %}active{% endif %}">間隔學習錯題</a>
+      </div>
+
       <!-- 篩選選單 -->
-      <form method="get" action="{% url 'wrong_answers' %}" style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap;">
+      <form method="get" action="{% if mode == 'sr' %}{% url 'sr_wrong_answers' %}{% else %}{% url 'wrong_answers' %}{% endif %}" style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap;">
         <label class="dim" style="font-size:13px;">章節</label>
         <select class="input input-sm" name="chapter" onchange="this.form.submit()" style="width:auto;min-width:160px;">
           <option value="">全部章節</option>
@@ -76,7 +82,7 @@
       {% if records %}
       <div class="record-list">
         {% for record in records %}
-        <a href="{% url 'wrong_answers_detail' record.id %}" class="record-row">
+        <a href="{% if mode == 'sr' %}{% url 'sr_wrong_answers_detail' record.id %}{% else %}{% url 'wrong_answers_detail' record.id %}{% endif %}" class="record-row">
           <div class="record-info">
             <div class="record-chapter">{{ record.chapter }}</div>
             <div class="record-time">{{ record.created_at|date:"Y-m-d H:i" }}</div>
@@ -87,7 +93,13 @@
       </div>
       {% else %}
       <div class="empty">
-        <div>暫無錯題記錄</div>
+        <div>
+          {% if mode == 'sr' %}
+            暫無間隔學習錯題記錄
+          {% else %}
+            暫無錯題記錄
+          {% endif %}
+        </div>
         <div style="margin-top:8px;color:var(--text-faint);">快去作答累積錯題吧！</div>
       </div>
       {% endif %}
